@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PETEK | Gizlilik Politikası, KVKK & Veri Güvenliği (Data Safety)</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card: #151b26;
+      --border: #232d3f;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #FDB913;
+      --primary-dim: rgba(253, 185, 19, 0.15);
+      --success: #10B981;
+      --danger: #EF4444;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 32px 24px;
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    header {
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+    .badge {
+      display: inline-block;
+      background-color: var(--primary-dim);
+      color: var(--primary);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      color: var(--primary);
+      margin: 8px 0;
+      font-size: 28px;
+    }
+    h2 {
+      color: var(--primary);
+      margin-top: 36px;
+      margin-bottom: 12px;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h3 {
+      color: #e2e8f0;
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    p, li {
+      color: #cbd5e1;
+      font-size: 15px;
+    }
+    ul {
+      padding-left: 22px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    a {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+    /* Table styles for Data Safety */
+    .table-container {
+      overflow-x: auto;
+      margin: 20px 0;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background-color: #1e2638;
+      color: var(--primary);
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      color: #e2e8f0;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .highlight-box {
+      background-color: rgba(253, 185, 19, 0.08);
+      border-left: 4px solid var(--primary);
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+    .danger-box {
+      background-color: rgba(239, 68, 68, 0.08);
+      border-left: 4px solid var(--danger);
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+    /* Deletion Form */
+    .deletion-card {
+      background-color: #10151f;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    input[type="email"], select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      background-color: #1a2232;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+    }
+    input[type="email"]:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .btn-submit {
+      background-color: var(--danger);
+      color: #fff;
+      font-weight: 700;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      display: inline-block;
+      transition: opacity 0.2s;
+    }
+    .btn-submit:hover {
+      opacity: 0.9;
+    }
+    .footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">🐝 PETEK İTÜ &bull; RESMİ TOPLULUK PLATFORMU</span>
+      <h1>PETEK Gizlilik Politikası, KVKK & Veri Güvenliği</h1>
+      <p style="color: var(--text-muted); margin: 0;">
+        <strong>Son Güncelleme:</strong> Ekim 2026 &bull; 
+        <strong>Kapsam:</strong> Google Play Store 2024+ Veri Güvenliği (Data Safety) Politikası & 6698 Sayılı KVKK
+      </p>
+    </header>
+
+    <p>
+      PETEK ("Uygulama"), İstanbul Teknik Üniversitesi öğrencilerine özel olarak tasarlanmış, kampüs dayanışmasını, kütüphane/çalışma alanı doluluk takibini ve kampüs içi bilgi paylaşımını sağlayan bağımsız bir mobil ve web platformudur.
+      Bu doküman, kişisel verilerinizin nasıl toplandığını, işlendiğini, korunduğunu ve Google Play kuralları gereği nasıl kalıcı olarak silebileceğinizi açıklamaktadır.
+    </p>
+
+    <h2>1. Veri Sorumlusu ve Temel İlkeler</h2>
+    <p>
+      PETEK, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") ve ilgili uluslararası mevzuat uyarınca "Veri Sorumlusu" sıfatıyla hareket eder.
+      Kullanıcı gizliliği temel önceliğimizdir. <strong>Kişisel verileriniz hiçbir surette satılmaz, kiralanmaz ve ticari veri simsarları ile paylaşılmaz.</strong>
+    </p>
+
+    <h2>2. Google Play Veri Güvenliği (Data Safety) Bildirimi</h2>
+    <p>
+      Google Play Geliştirici Politikaları doğrultusunda, uygulamamızın topladığı veya işlediği veriler ve kullanım amaçları aşağıdaki tabloda eksiksiz listelenmiştir:
+    </p>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Veri Türü</th>
+            <th>Toplanan Bilgi</th>
+            <th>Toplama Amacı</th>
+            <th>İsteğe Bağlı mı?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Kişisel Bilgiler</strong></td>
+            <td>E-posta adresi (@itu.edu.tr), Rumuz (Nickname), Bölüm/Fakülte</td>
+            <td>Hesap oluşturma, kimlik doğrulama, kampüs topluluk profili</td>
+            <td>Zorunlu (Kayıt için)</td>
+          </tr>
+          <tr>
+            <td><strong>Kullanıcı İçeriği (UGC)</strong></td>
+            <td>Gönderiler, yorumlar, itiraflar, kantin fiyat bildirimleri</td>
+            <td>Topluluk akışı ve öğrenciler arası yardımlaşma</td>
+            <td>Kullanıcı isteğine bağlı</td>
+          </tr>
+          <tr>
+            <td><strong>Fotoğraf & Medya</strong></td>
+            <td>Profil fotoğrafı, gönderiye eklenen kampüs fotoğrafları</td>
+            <td>Kullanıcının seçtiği görselleri paylaşabilmesi</td>
+            <td>İsteğe bağlı</td>
+          </tr>
+          <tr>
+            <td><strong>Ses Kayıtları</strong></td>
+            <td>Kullanıcının kaydettiği sesli notlar / sesli yorumlar</td>
+            <td>Sesli içerik paylaşımı</td>
+            <td>İsteğe bağlı</td>
+          </tr>
+          <tr>
+            <td><strong>Konum (Yaklaşık)</strong></td>
+            <td>Yalnızca anlık kütüphane / mekan doluluk pingleme anında alınan koordinat</td>
+            <td>Mekan doluluk oranının kütüphanede olan gerçek öğrencilerce teyidi</td>
+            <td>İsteğe bağlı (Arka planda konum İZLENMEZ)</td>
+          </tr>
+          <tr>
+            <td><strong>Uygulama Performansı</strong></td>
+            <td>Hata ve çökme günlükleri (Crash logs), anonim teşhis verileri</td>
+            <td>Uygulama kararlılığını artırma ve teknik hata giderme</td>
+            <td>Otomatik / Anonim</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>3. Veri Güvenliği ve Şifreleme</h2>
+    <div class="highlight-box">
+      <strong>🔒 Uçtan Uca Şifreli İletişim:</strong><br>
+      Tüm veri aktarımı modern SSL/TLS (HTTPS) protokolleri üzerinden şifrelenir. Veritabanımızdaki hassas kullanıcı şifreleri tek yönlü güçlü kriptografik özetleme (Bcrypt / Argon2) ile korunur.
+    </div>
+
+    <h2>4. Kullanıcı İçeriği Güvenliği ve Moderasyon (UGC)</h2>
+    <p>PETEK, güvenli ve saygılı bir kampüs ortamı sunmak için katı UGC moderasyon standartları uygular:</p>
+    <ul>
+      <li><strong>Şikayet & Bildirim:</strong> Her gönderi ve yorumun altında yer alan şikayet butonu ile nefret söylemi, taciz veya kurallara aykırı içerikler anında moderasyon paneline iletilir.</li>
+      <li><strong>Kullanıcı Engelleme:</strong> Rahatsızlık veren kullanıcılar tek tıkla engellenebilir; engellenen kişinin içerikleri ve mesajları kullanıcıya gösterilmez.</li>
+      <li><strong>Hızlı Müdahale:</strong> Bildirilen içerikler en geç 24 saat içinde incelenir ve ihlal durumunda derhal kaldırılır, ihlal eden hesaplar kilitlenir.</li>
+    </ul>
+
+    <h2 id="delete-account">5. Hesap ve İlişkili Verilerin Silinmesi (Google Play Zorunlu Şartı)</h2>
+    <p>
+      Google Play Store 2024+ politikaları uyarınca, PETEK kullanıcılarına hesaplarını ve tüm ilişkili verilerini hem <strong>uygulama içerisinden</strong> hem de <strong>web üzerinden</strong> kalıcı olarak silme hakkı tanınmaktadır.
+    </p>
+
+    <h3>Yöntem 1: Uygulama İçerisinden Anında Silme</h3>
+    <p>
+      Uygulama yüklüyse: <strong>Profil &gt; Ayarlar &gt; "Hesabı Kalıcı Olarak Sil"</strong> butonuna dokunarak hesabınızı ve tüm verilerinizi hiçbir beklemeye gerek kalmaksızın derhal silebilirsiniz.
+    </p>
+
+    <h3>Yöntem 2: Web Üzerinden Hesap ve Veri Silme Talebi</h3>
+    <p>
+      Uygulamayı cihazınızdan kaldırdıysanız veya erişiminiz yoksa, aşağıdaki formu kullanarak veya doğrudan 
+      <a href="mailto:petek.itu@gmail.com?subject=PETEK%20Hesap%20Silme%20Talebi">petek.itu@gmail.com</a> adresine kayıtlı e-postanızla başvurarak verilerinizin silinmesini talep edebilirsiniz.
+    </p>
+
+    <div class="deletion-card">
+      <h3 style="margin-top:0; color: var(--danger);">🗑️ Web Üzerinden Hesap Silme Talep Formu</h3>
+      <p style="font-size: 13px; color: var(--text-muted);">
+        Bu form ile iletilen talepler en geç <strong>24-48 saat</strong> içinde işleme alınarak hesabınız ve tüm verileriniz kalıcı olarak imha edilir.
+      </p>
+
+      <form id="deleteForm" onsubmit="handleDeletionSubmit(event)">
+        <div class="form-group">
+          <label for="userEmail">Kayıtlı İTÜ E-Posta Adresiniz *</label>
+          <input type="email" id="userEmail" required placeholder="ornek@itu.edu.tr">
+        </div>
+
+        <div class="form-group">
+          <label for="deleteReason">Silme Gerekçesi (İsteğe Bağlı)</label>
+          <select id="deleteReason">
+            <option value="Mezuniyet / Ayrılış">Mezuniyet / Üniversiteden Ayrılış</option>
+            <option value="Uygulamayı Artık Kullanmıyorum">Uygulamayı artık kullanmıyorum</option>
+            <option value="Gizlilik Tercihi">Gizlilik tercihleri</option>
+            <option value="Diğer">Diğer</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex; align-items:flex-start; gap:8px; font-weight:normal; font-size:13px;">
+            <input type="checkbox" required style="margin-top: 3px;">
+            Profilimin, paylaştığım tüm gönderilerin, yorumların, ses kayıtlarının ve puanlarımın geri döndürülemez biçimde kalıcı olarak silineceğini anlıyor ve onaylıyorum.
+          </label>
+        </div>
+
+        <button type="submit" class="btn-submit">Hesabımı ve Tüm Verilerimi Kalıcı Olarak Sil</button>
+      </form>
+
+      <div id="deletionStatus" style="display:none; margin-top:16px; padding:12px; border-radius:8px; background-color:#1e293b; color:#38bdf8; font-size:14px;"></div>
+    </div>
+
+    <div class="danger-box">
+      <strong>Hangi veriler silinir?</strong>
+      <ul>
+        <li>Kullanıcı adı, e-posta, şifre ve profil detayları</li>
+        <li>Tüm gönderiler, fotoğraflar, ses kayıtları ve yorumlar</li>
+        <li>Kazanılan Arı Puanları, rozetler ve Pomodoro kayıtları</li>
+        <li>Tüm anlık bildirim jetonları ve oturum anahtarları</li>
+      </ul>
+      <em>Not: Dolandırıcılığı önleme ve yasal güvenlik yükümlülükleri için anonim sistem erişim kayıtları yasal azami süre olan 30 gün sonunda sistemden otomatik süpürülür.</em>
+    </div>
+
+    <h2>6. İletişim ve KVKK Başvuru</h2>
+    <p>
+      Gizlilik politikası, verilerinizin işlenmesi veya KVKK kapsamındaki haklarınızla ilgili her türlü soru için bizimle doğrudan iletişime geçebilirsiniz:
+    </p>
+    <p>
+      <strong>Geliştirici & Veri Sorumlusu Temsilcisi:</strong> Yiğit Uzar &bull; İTÜ İnşaat Mühendisliği<br>
+      <strong>Resmi E-Posta:</strong> <a href="mailto:petek.itu@gmail.com">petek.itu@gmail.com</a> / <a href="mailto:uzaryigit@gmail.com">uzaryigit@gmail.com</a><br>
+      <strong>Adres:</strong> İstanbul Teknik Üniversitesi Ayazağa Kampüsü, Maslak / Sarıyer / İstanbul
+    </p>
+
+    <div class="footer">
+      &copy; 2026 PETEK - İTÜ Kampüs Topluluğu Platformu. Tüm hakları saklıdır.<br>
+      <a href="/terms.html">Kullanım Koşulları ve Topluluk Kuralları</a> &bull; <a href="/privacy.html">Gizlilik Politikası</a>
+    </div>
+  </div>
+
+  <script>
+    function handleDeletionSubmit(e) {
+      e.preventDefault();
+      var email = document.getElementById('userEmail').value;
+      var reason = document.getElementById('deleteReason').value;
+      var statusDiv = document.getElementById('deletionStatus');
+      
+      var mailSubject = encodeURIComponent("PETEK Hesap Silme Talebi - " + email);
+      var mailBody = encodeURIComponent("Merhaba PETEK Ekibi,\n\n" + email + " adresine kayıtlı PETEK hesabımın ve ilişkili tüm verilerimin kalıcı olarak silinmesini talep ediyorum.\n\nGerekçe: " + reason + "\n\nTeşekkürler.");
+      
+      statusDiv.style.display = 'block';
+      statusDiv.innerHTML = "✅ Talebiniz hazırlandı. Silme işleminin doğrulanması için lütfen açılan e-posta istemcisinden talebi gönderiniz veya <strong>petek.itu@gmail.com</strong> adresine onay iletiniz.<br><br><a href='mailto:petek.itu@gmail.com?subject=" + mailSubject + "&body=" + mailBody + "' style='color:#FDB913; font-weight:bold;'>E-Posta İle Onay Gönder &rarr;</a>";
+      
+      window.location.href = "mailto:petek.itu@gmail.com?subject=" + mailSubject + "&body=" + mailBody;
+    }
+  </script>
+</body>
+</html>
