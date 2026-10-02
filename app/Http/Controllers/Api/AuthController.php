@@ -264,6 +264,11 @@ class AuthController extends Controller
 
     public function getUserArchivedPosts($userId, Request $request)
     {
+        $currentUser = $request->user();
+        if (!$currentUser || (string)$currentUser->id !== (string)$userId) {
+            return response()->json(['detail' => 'Arşivlenen gönderileri yalnızca hesap sahibi görüntüleyebilir.'], 403);
+        }
+
         $skip = (int) $request->get('skip', 0);
         $limit = (int) $request->get('limit', 20);
 
@@ -291,6 +296,11 @@ class AuthController extends Controller
 
     public function getUserLikedPosts($userId, Request $request)
     {
+        $currentUser = $request->user();
+        if (!$currentUser || (string)$currentUser->id !== (string)$userId) {
+            return response()->json(['detail' => 'Beğenilen gönderileri yalnızca hesap sahibi görüntüleyebilir.'], 403);
+        }
+
         $skip = (int) $request->get('skip', 0);
         $limit = (int) $request->get('limit', 20);
 
@@ -319,6 +329,11 @@ class AuthController extends Controller
 
     public function getUserReplies($userId, Request $request)
     {
+        $currentUser = $request->user();
+        if (!$currentUser || (string)$currentUser->id !== (string)$userId) {
+            return response()->json(['detail' => 'Yanıtları yalnızca hesap sahibi görüntüleyebilir.'], 403);
+        }
+
         $limit = (int) $request->get('limit', 20);
 
         $comments = Comment::with('post')

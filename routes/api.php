@@ -49,13 +49,13 @@ Route::prefix('users')->group(function () {
     Route::get('/search', [AuthController::class, 'searchUsers']);
     Route::get('/{id}', [AuthController::class, 'getUserProfile']);
     Route::get('/{id}/posts', [AuthController::class, 'getUserPosts']);
-    Route::get('/{id}/archived-posts', [AuthController::class, 'getUserArchivedPosts']);
-    Route::get('/{id}/liked-posts', [AuthController::class, 'getUserLikedPosts']);
-    Route::get('/{id}/replies', [AuthController::class, 'getUserReplies']);
     Route::get('/{id}/followers', [AuthController::class, 'getFollowers']);
     Route::get('/{id}/following', [AuthController::class, 'getFollowing']);
 
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/{id}/archived-posts', [AuthController::class, 'getUserArchivedPosts']);
+        Route::get('/{id}/liked-posts', [AuthController::class, 'getUserLikedPosts']);
+        Route::get('/{id}/replies', [AuthController::class, 'getUserReplies']);
         Route::put('/profile', [AuthController::class, 'updateProfile']);
         Route::post('/location', [AuthController::class, 'updateLocation']);
         Route::post('/freeze', [AuthController::class, 'freezeAccount']);
