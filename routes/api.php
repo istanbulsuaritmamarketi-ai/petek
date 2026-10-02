@@ -204,6 +204,11 @@ Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::post('/library-floors', [LibraryController::class, 'storeFloor']);
     Route::put('/library-floors/{id}', [LibraryController::class, 'updateFloor']);
     Route::delete('/library-floors/{id}', [LibraryController::class, 'deleteFloor']);
+
+    // Broadcast Notifications
+    Route::get('/broadcasts', [AdminController::class, 'getBroadcastNotifications']);
+    Route::post('/broadcasts', [AdminController::class, 'sendBroadcastNotification']);
+    Route::delete('/broadcasts/{id}', [AdminController::class, 'deleteBroadcastNotification']);
 });
 
 // --- DEALS & DISCOUNTS ---

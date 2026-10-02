@@ -536,6 +536,25 @@ class AdminController extends Controller
             }
         }
 
+        // Admin Broadcast Notifications
+        $broadcasts = \App\Models\BroadcastNotification::where('is_active', true)
+            ->orderByDesc('created_at')
+            ->limit(30)
+            ->get();
+
+        foreach ($broadcasts as $b) {
+            $notifications[] = [
+                'id' => 'broadcast-' . $b->id,
+                'type' => $b->type ?: 'announcement',
+                'title' => $b->title,
+                'body' => $b->message,
+                'target_screen' => $b->target_screen,
+                'target_url' => $b->target_url,
+                'is_read' => false,
+                'created_at' => $b->created_at ? $b->created_at->toISOString() : now()->toISOString(),
+            ];
+        }
+
         $notifications[] = [
             'id' => 'sys-welcome',
             'type' => 'system',
@@ -836,6 +855,53 @@ class AdminController extends Controller
 
         \App\Models\AppSetting::set('branding_settings', $payload, 'Uygulama ikonu ve marka ayarları');
         return response()->json(['message' => 'Uygulama ikonu ve marka ayarları başarıyla güncellendi.', 'branding' => $payload]);
+    }
+
+    public function getBroadcastNotifications(Request $request)
+    {
+        $broadcasts = \App\Models\BroadcastNotification::with('sender:id,name,nickname,avatar')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json($broadcasts);
+    }
+
+    public function sendBroadcastNotification(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:190',
+            'message' => 'required|string|max:1000',
+            'type' => 'nullable|string|max:50',
+            'target_screen' => 'nullable|string|max:100',
+            'target_url' => 'nullable|string|max:255',
+        ]);
+
+        $user = $request->user();
+
+        $broadcast = \App\Models\BroadcastNotification::create([
+            'title' => $validated['title'],
+            'message' => $validated['message'],
+            'type' => $validated['type'] ?? 'announcement',
+            'target_screen' => $validated['target_screen'] ?? null,
+            'target_url' => $validated['target_url'] ?? null,
+            'sent_by_user_id' => $user ? $user->id : null,
+            'is_active' => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Bildirim tüm İTÜ öğrencilerine başarıyla yayınlandı! 📢',
+            'broadcast' => $broadcast->load('sender:id,name,nickname,avatar'),
+        ], 201);
+    }
+
+    public function deleteBroadcastNotification(Request $request, $id)
+    {
+        $broadcast = \App\Models\BroadcastNotification::findOrFail($id);
+        $broadcast->delete();
+
+        return response()->json([
+            'message' => 'Yayınlanan bildirim başarıyla silindi ve yayından kaldırıldı.',
+        ]);
     }
 }
 
