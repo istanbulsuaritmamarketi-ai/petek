@@ -16,6 +16,7 @@ class QuickLink extends Model
         'description',
         'url',
         'icon',
+        'image',
         'color',
         'badge',
         'order',

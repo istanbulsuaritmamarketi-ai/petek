@@ -44,6 +44,29 @@ class QuickLinkController extends Controller
         return response()->json($links);
     }
 
+    private function processImage(?string $image): ?string
+    {
+        if (!$image) return null;
+        if (str_starts_with($image, 'data:image')) {
+            if (preg_match('/^data:image\/(\w+);base64,/', $image, $match)) {
+                $ext = strtolower($match[1] === 'jpeg' ? 'jpg' : $match[1]);
+                $contentData = base64_decode(substr($image, strpos($image, ',') + 1));
+                $uploadDir = public_path('uploads/portals');
+                if (!file_exists($uploadDir)) {
+                    @mkdir($uploadDir, 0755, true);
+                }
+                $filename = 'portal_' . uniqid() . '.' . $ext;
+                file_put_contents($uploadDir . '/' . $filename, $contentData);
+                $url = url('uploads/portals/' . $filename);
+                if (str_contains(config('app.url'), 'https://') || request()->isSecure() || str_contains($url, 'itupetek.com.tr')) {
+                    $url = str_replace('http://', 'https://', $url);
+                }
+                return $url;
+            }
+        }
+        return $image;
+    }
+
     public function store(Request $request)
     {
         $user = $request->user();
@@ -58,10 +81,15 @@ class QuickLinkController extends Controller
             'description' => 'required|string',
             'url' => 'required|string',
             'icon' => 'nullable|string|max:50',
+            'image' => 'nullable|string',
             'color' => 'nullable|string|max:50',
             'badge' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
+
+        if (!empty($validated['image'])) {
+            $validated['image'] = $this->processImage($validated['image']);
+        }
 
         $link = QuickLink::create($validated);
 
@@ -84,10 +112,15 @@ class QuickLinkController extends Controller
             'description' => 'sometimes|required|string',
             'url' => 'sometimes|required|string',
             'icon' => 'nullable|string|max:50',
+            'image' => 'nullable|string',
             'color' => 'nullable|string|max:50',
             'badge' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
+
+        if (array_key_exists('image', $validated)) {
+            $validated['image'] = $this->processImage($validated['image']);
+        }
 
         $link->update($validated);
 
