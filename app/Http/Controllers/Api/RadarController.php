@@ -164,6 +164,12 @@ class RadarController extends Controller
 
     public function suggestPrice(Request $request, $id)
     {
+        $rawPrice = $request->price;
+        if (is_string($rawPrice)) {
+            $rawPrice = preg_replace('/[^\d.]/', '', str_replace(',', '.', $rawPrice));
+        }
+        $request->merge(['price' => $rawPrice]);
+
         $request->validate([
             'product_name' => 'required|string',
             'price' => 'required|numeric',
