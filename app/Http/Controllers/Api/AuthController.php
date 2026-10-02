@@ -35,6 +35,9 @@ class AuthController extends Controller
             'focus_minutes' => $user->focus_minutes ?? 0,
             'follower_count' => $user->followers()->count(),
             'following_count' => $user->following()->count(),
+            'share_campus_status' => (bool) ($user->share_campus_status ?? true),
+            'is_on_campus' => $user->isOnCampus(),
+            'campus_status' => $user->getCampusStatus(),
             'created_at' => $user->created_at->toISOString(),
         ];
     }
@@ -155,6 +158,10 @@ class AuthController extends Controller
 
         if ($request->has('bio')) {
             $user->bio = trim($request->bio);
+        }
+
+        if ($request->has('share_campus_status')) {
+            $user->share_campus_status = filter_var($request->input('share_campus_status'), FILTER_VALIDATE_BOOLEAN);
         }
 
         $user->save();

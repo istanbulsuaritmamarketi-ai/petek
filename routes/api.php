@@ -174,6 +174,9 @@ Route::prefix('chat')->middleware('auth:sanctum')->group(function () {
     // Direct message route aliases
     Route::get('/messages/{conversationId}', [ChatController::class, 'messages']);
     Route::post('/messages/{conversationId}', [ChatController::class, 'sendMessage']);
+    // Campus presence status
+    Route::get('/conversation/{conversationId}/status', [ChatController::class, 'getConversationStatus']);
+    Route::get('/user-status/{userId}', [ChatController::class, 'getUserCampusStatus']);
 });
 
 // --- ADMIN PANEL ---

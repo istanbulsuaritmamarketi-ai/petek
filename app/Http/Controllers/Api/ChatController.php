@@ -26,11 +26,15 @@ class ChatController extends Controller
                 ->where('is_read', false)
                 ->count();
 
+            $campusStatus = $other ? $other->getCampusStatus() : ['is_on_campus' => false, 'status_text' => 'Kampüs Dışında', 'campus_name' => null];
+
             return [
                 'id' => (string) $c->id,
                 'other_user_id' => (string) ($other?->id ?? ''),
                 'other_user_nickname' => $other?->nickname ?? 'Bilinmeyen',
                 'other_user_avatar' => $other?->avatar,
+                'other_user_is_on_campus' => (bool) $campusStatus['is_on_campus'],
+                'other_user_campus_status' => $campusStatus,
                 'last_message' => $c->last_message,
                 'last_message_at' => $c->last_message_at?->toISOString(),
                 'unread_count' => $unread,
@@ -216,5 +220,55 @@ class ChatController extends Controller
             'is_read' => false,
             'created_at' => $message->created_at->toISOString(),
         ], 201);
+    }
+
+    public function getConversationStatus($conversationId, Request $request)
+    {
+        $user = $request->user();
+        $conversation = Conversation::with('participants')->find($conversationId);
+
+        $other = null;
+        if ($conversation) {
+            $other = $conversation->participants->firstWhere('id', '!=', $user->id);
+        } else {
+            // Might be target user id passed
+            $other = User::find($conversationId);
+        }
+
+        if (!$other) {
+            return response()->json([
+                'other_user_id' => null,
+                'other_user_nickname' => null,
+                'other_user_avatar' => null,
+                'is_on_campus' => false,
+                'status_text' => 'Kampüs Dışında',
+                'campus_name' => null,
+            ]);
+        }
+
+        $campusStatus = $other->getCampusStatus();
+
+        return response()->json([
+            'other_user_id' => (string) $other->id,
+            'other_user_nickname' => $other->nickname,
+            'other_user_avatar' => $other->avatar,
+            'is_on_campus' => (bool) $campusStatus['is_on_campus'],
+            'status_text' => $campusStatus['status_text'],
+            'campus_name' => $campusStatus['campus_name'],
+        ]);
+    }
+
+    public function getUserCampusStatus($userId)
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return response()->json([
+                'is_on_campus' => false,
+                'status_text' => 'Kampüs Dışında',
+                'campus_name' => null,
+            ]);
+        }
+
+        return response()->json($user->getCampusStatus());
     }
 }

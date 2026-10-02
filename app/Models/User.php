@@ -33,6 +33,7 @@ class User extends Authenticatable
         'club_name',
         'club_description',
         'dismissed_notifications',
+        'share_campus_status',
     ];
 
     protected $hidden = [
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_frozen' => 'boolean',
+            'share_campus_status' => 'boolean',
             'badges' => 'array',
             'dismissed_notifications' => 'array',
             'location_updated_at' => 'datetime',
@@ -108,5 +110,82 @@ class User extends Authenticatable
     public function blockedByUsers()
     {
         return $this->belongsToMany(User::class, 'user_blocks', 'blocked_id', 'user_id')->withTimestamps();
+    }
+
+    /**
+     * Determines whether the user is currently verified to be on campus.
+     */
+    public function isOnCampus(): bool
+    {
+        // 1. If user disabled sharing campus status, always false
+        if ($this->share_campus_status === false) {
+            return false;
+        }
+
+        // 2. Must have coordinates and an updated timestamp
+        if (!$this->location_lat || !$this->location_lng || !$this->location_updated_at) {
+            return false;
+        }
+
+        // 3. Must be updated within the last 120 minutes (2 hours)
+        if ($this->location_updated_at->lt(now()->subMinutes(120))) {
+            return false;
+        }
+
+        $lat = (float) $this->location_lat;
+        $lng = (float) $this->location_lng;
+
+        // 4. Ayazağa Kampüsü (Maslak)
+        if ($lat >= 41.0950 && $lat <= 41.1180 && $lng >= 29.0120 && $lng <= 29.0400) {
+            return true;
+        }
+
+        // 5. Taşkışla, Gümüşsuyu, Maçka Kampüsleri (Şehir Kampüsleri)
+        if ($lat >= 41.0340 && $lat <= 41.0500 && $lng >= 28.9800 && $lng <= 29.0050) {
+            return true;
+        }
+
+        // 6. Tuzla Kampüsü (Denizcilik Fakültesi)
+        if ($lat >= 40.8100 && $lat <= 40.8250 && $lng >= 29.2900 && $lng <= 29.3100) {
+            return true;
+        }
+
+        // 7. Proximity to any registered Zone in zones table (~500 meters)
+        return Zone::whereBetween('lat', [$lat - 0.005, $lat + 0.005])
+            ->whereBetween('lng', [$lng - 0.005, $lng + 0.005])
+            ->exists();
+    }
+
+    /**
+     * Get user-friendly campus status info.
+     */
+    public function getCampusStatus(): array
+    {
+        $isOn = $this->isOnCampus();
+        if (!$isOn) {
+            return [
+                'is_on_campus' => false,
+                'status_text' => 'Kampüs Dışında',
+                'campus_name' => null,
+            ];
+        }
+
+        $lat = (float) $this->location_lat;
+        $lng = (float) $this->location_lng;
+
+        $campusName = 'İTÜ Kampüsünde';
+        if ($lat >= 41.0950 && $lat <= 41.1180 && $lng >= 29.0120 && $lng <= 29.0400) {
+            $campusName = 'Ayazağa Kampüsü';
+        } elseif ($lat >= 41.0340 && $lat <= 41.0500 && $lng >= 28.9800 && $lng <= 29.0050) {
+            $campusName = 'Şehir Kampüsü';
+        } elseif ($lat >= 40.8100 && $lat <= 40.8250 && $lng >= 29.2900 && $lng <= 29.3100) {
+            $campusName = 'Tuzla Kampüsü';
+        }
+
+        return [
+            'is_on_campus' => true,
+            'status_text' => 'Kampüste',
+            'campus_name' => $campusName,
+        ];
     }
 }
