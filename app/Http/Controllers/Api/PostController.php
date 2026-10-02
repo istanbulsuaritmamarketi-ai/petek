@@ -172,6 +172,7 @@ class PostController extends Controller
 
         // Apply sorting criteria
         switch ($sort) {
+            case 'popular':
             case 'hot':
                 $query->orderByRaw('( (SELECT COUNT(*) FROM post_likes WHERE post_likes.post_id = posts.id) * 2 + (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) * 3 + posts.view_count * 0.1 ) / POW(GREATEST(0, TIMESTAMPDIFF(HOUR, posts.created_at, NOW())) + 2, 1.5) DESC')
                       ->orderBy('created_at', 'desc');
