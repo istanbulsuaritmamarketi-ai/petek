@@ -84,6 +84,13 @@ class PostController extends Controller
         $postType = $request->get('post_type');
         $hashtag = $request->get('hashtag');
         $trending = filter_var($request->get('trending'), FILTER_VALIDATE_BOOLEAN);
+        $sort = $request->get('sort');
+        // Backwards compatibility: if trending flag is passed and sort is not provided, sort = 'hot'
+        if (!$sort && $trending) {
+            $sort = 'hot';
+        } elseif (!$sort) {
+            $sort = 'newest';
+        }
         $q = trim($request->get('q', ''));
         $skip = (int) $request->get('skip', 0);
         $limit = (int) $request->get('limit', 20);
@@ -109,6 +116,23 @@ class PostController extends Controller
 
             if (!empty($blockedUserIds)) {
                 $query->whereNotIn('user_id', $blockedUserIds);
+            }
+        }
+
+        // Following filter: only posts by accounts the user follows (or pinned announcements)
+        if ($sort === 'following') {
+            if ($currentUser) {
+                $followingIds = DB::table('user_follows')
+                    ->where('follower_id', $currentUser->id)
+                    ->pluck('following_id')
+                    ->toArray();
+
+                $query->where(function ($sub) use ($followingIds) {
+                    $sub->whereIn('user_id', $followingIds)
+                        ->orWhere('is_pinned', true);
+                });
+            } else {
+                $query->where('is_pinned', true);
             }
         }
 
@@ -142,15 +166,28 @@ class PostController extends Controller
             $query->where('is_anonymous', $isAnon);
         }
 
-        if ($trending) {
-            $query->orderBy('is_pinned', 'desc')
-                  ->withCount('likes')
-                  ->orderBy('likes_count', 'desc')
-                  ->orderBy('created_at', 'desc');
-        } else {
-            $query->orderBy('is_pinned', 'desc')
-                  ->orderBy('pinned_at', 'desc')
-                  ->orderBy('created_at', 'desc');
+        // Pinned posts ALWAYS come first across all sorting modes
+        $query->orderBy('is_pinned', 'desc')
+              ->orderBy('pinned_at', 'desc');
+
+        // Apply sorting criteria
+        switch ($sort) {
+            case 'hot':
+                $query->orderByRaw('( (SELECT COUNT(*) FROM post_likes WHERE post_likes.post_id = posts.id) * 2 + (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) * 3 + posts.view_count * 0.1 ) / POW(GREATEST(0, TIMESTAMPDIFF(HOUR, posts.created_at, NOW())) + 2, 1.5) DESC')
+                      ->orderBy('created_at', 'desc');
+                break;
+
+            case 'top':
+                $query->withCount('likes')
+                      ->orderBy('likes_count', 'desc')
+                      ->orderBy('created_at', 'desc');
+                break;
+
+            case 'following':
+            case 'newest':
+            default:
+                $query->orderBy('created_at', 'desc');
+                break;
         }
 
         $posts = $query->skip($skip)->take($limit)->get();
