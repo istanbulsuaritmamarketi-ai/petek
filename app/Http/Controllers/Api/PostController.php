@@ -62,8 +62,15 @@ class PostController extends Controller
 
     private function extractHashtags(string $text): array
     {
-        preg_match_all('/#(\w+)/u', $text, $matches);
-        return array_values(array_unique($matches[1] ?? []));
+        preg_match_all('/#([\p{L}\p{N}_]+)/u', $text, $matches);
+        $tags = [];
+        foreach ($matches[1] ?? [] as $t) {
+            $clean = trim(ltrim($t, '#'));
+            if ($clean !== '') {
+                $tags[] = $clean;
+            }
+        }
+        return array_values(array_unique($tags));
     }
 
     public function index(Request $request)
@@ -117,7 +124,11 @@ class PostController extends Controller
         }
 
         if ($hashtag) {
-            $query->whereJsonContains('hashtags', $hashtag);
+            $cleanHash = trim(ltrim($hashtag, '#'));
+            $query->where(function ($sub) use ($cleanHash) {
+                $sub->whereJsonContains('hashtags', $cleanHash)
+                    ->orWhere('content', 'like', "%#{$cleanHash}%");
+            });
         }
 
         if ($request->has('is_anonymous')) {
@@ -143,21 +154,20 @@ class PostController extends Controller
         $postType = $request->input('post_type', 'general');
         $isAnonymous = filter_var($request->input('is_anonymous', false), FILTER_VALIDATE_BOOLEAN);
 
-        $hashtags = [];
-        if ($request->has('hashtags')) {
-            $raw = $request->input('hashtags');
-            $hashtags = is_array($raw) ? $raw : json_decode($raw, true) ?? [];
-        }
-        if (empty($hashtags)) {
-            $hashtags = $this->extractHashtags($content);
-        }
+        $extracted = $this->extractHashtags($content);
+        $raw = $request->input('hashtags', []);
+        $passed = is_array($raw) ? $raw : (json_decode($raw, true) ?? []);
+        $allHashtags = array_values(array_unique(array_filter(array_merge(
+            array_map(fn($t) => trim(ltrim((string)$t, '#')), (array)$passed),
+            $extracted
+        ))));
 
         $post = Post::create([
             'user_id' => $user->id,
             'content' => $content,
             'post_type' => $postType,
             'is_anonymous' => $isAnonymous,
-            'hashtags' => $hashtags,
+            'hashtags' => $allHashtags,
             'view_count' => 0,
             'is_archived' => false,
         ]);
@@ -617,17 +627,32 @@ class PostController extends Controller
 
     public function trendingHashtags()
     {
-        $tags = DB::table('posts')
+        $posts = DB::table('posts')
             ->where('is_archived', false)
-            ->whereNotNull('hashtags')
-            ->select('hashtags')
+            ->select('hashtags', 'content')
             ->get();
 
         $counts = [];
-        foreach ($tags as $row) {
-            $list = json_decode($row->hashtags, true) ?? [];
+        foreach ($posts as $row) {
+            $list = [];
+            if (!empty($row->hashtags)) {
+                $decoded = is_array($row->hashtags) ? $row->hashtags : json_decode($row->hashtags, true);
+                if (is_array($decoded)) {
+                    $list = $decoded;
+                }
+            }
+
+            // Also extract hashtags directly from content to ensure real-time consistency
+            if (!empty($row->content)) {
+                $contentTags = $this->extractHashtags($row->content);
+                $list = array_merge($list, $contentTags);
+            }
+
             foreach ($list as $tag) {
-                $counts[$tag] = ($counts[$tag] ?? 0) + 1;
+                $clean = trim(ltrim((string)$tag, '#'));
+                if ($clean !== '') {
+                    $counts[$clean] = ($counts[$clean] ?? 0) + 1;
+                }
             }
         }
 
