@@ -320,12 +320,10 @@ class AdminController extends Controller
             ];
         }
 
-        // Dining (Yemekhane) Good Food Notification
+        // Dining (Yemekhane) Good Food Notification - ONLY when real students vote (at least 3 ratings and average >= 4.0)
         $todayMenu = \App\Models\DiningMenu::whereDate('date', now()->toDateString())
-            ->where(function ($q) {
-                $q->where('notification_sent', true)
-                  ->orWhere('average_rating', '>=', 4.0);
-            })
+            ->where('rating_count', '>=', 3)
+            ->where('average_rating', '>=', 4.0)
             ->latest('average_rating')
             ->first();
 

@@ -19,7 +19,7 @@ class RadarController extends Controller
             ->count();
 
         $capacity = max(20, (int) ($zone->capacity ?: 200));
-        $occupancyPercent = min(100, max(5, (int) round(($activeStudents / $capacity) * 100)));
+        $occupancyPercent = ($capacity > 0 && $activeStudents > 0) ? min(100, (int) round(($activeStudents / $capacity) * 100)) : 0;
 
         $recentVotes = $zone->recentVotes()->get();
         if ($recentVotes->isNotEmpty()) {

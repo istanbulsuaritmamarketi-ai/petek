@@ -49,4 +49,34 @@ class CloudinaryService
         Log::error('Cloudinary Upload Failed: ' . $response->body());
         throw new \Exception('Medya yükleme başarısız: ' . $response->body());
     }
+
+    /**
+     * Upload base64 encoded data URI to Cloudinary.
+     */
+    public function uploadBase64(string $base64Data, string $folder = 'petek_v3'): string
+    {
+        $timestamp = time();
+        $isVideo = str_starts_with($base64Data, 'data:video/');
+        $resourceType = $isVideo ? 'video' : 'image';
+
+        $paramsToSign = "folder={$folder}&timestamp={$timestamp}";
+        $signature = sha1($paramsToSign . $this->apiSecret);
+
+        $url = "https://api.cloudinary.com/v1_1/{$this->cloudName}/{$resourceType}/upload";
+
+        $response = Http::asForm()->post($url, [
+            'file' => $base64Data,
+            'api_key' => $this->apiKey,
+            'timestamp' => $timestamp,
+            'folder' => $folder,
+            'signature' => $signature,
+        ]);
+
+        if ($response->successful()) {
+            return $response->json('secure_url');
+        }
+
+        Log::error('Cloudinary Base64 Upload Failed: ' . $response->body());
+        throw new \Exception('Medya yükleme başarısız: ' . $response->body());
+    }
 }

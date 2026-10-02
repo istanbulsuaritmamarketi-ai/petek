@@ -174,9 +174,14 @@ class PostController extends Controller
             try {
                 $url = $this->cloudinary->uploadMedia($file);
             } catch (\Exception $e) {
-                // Fallback to local public storage
-                $path = $file->store('media', 'public');
-                $url = asset('storage/' . $path);
+                // Fallback to local direct public storage (no symlink required)
+                $uploadDir = public_path('uploads/media');
+                if (!file_exists($uploadDir)) {
+                    @mkdir($uploadDir, 0755, true);
+                }
+                $filename = 'post_' . uniqid() . '.' . ($ext ?: 'jpg');
+                $file->move($uploadDir, $filename);
+                $url = url('uploads/media/' . $filename);
             }
 
             if ($url) {
@@ -190,13 +195,22 @@ class PostController extends Controller
             $base64 = $request->input('image_base64') ?: $request->input('image');
             $mediaType = $request->input('media_type', 'image');
             $url = null;
-            if (preg_match('/^data:image\/(\w+);base64,/', $base64, $match)) {
-                $ext = strtolower($match[1] === 'jpeg' ? 'jpg' : $match[1]);
-                $contentData = base64_decode(substr($base64, strpos($base64, ',') + 1));
-                $filename = 'post_' . uniqid() . '.' . $ext;
-                \Illuminate\Support\Facades\Storage::disk('public')->put('media/' . $filename, $contentData);
-                $url = asset('storage/media/' . $filename);
+            try {
+                $url = $this->cloudinary->uploadBase64($base64);
+            } catch (\Exception $e) {
+                if (preg_match('/^data:image\/(\w+);base64,/', $base64, $match)) {
+                    $ext = strtolower($match[1] === 'jpeg' ? 'jpg' : $match[1]);
+                    $contentData = base64_decode(substr($base64, strpos($base64, ',') + 1));
+                    $uploadDir = public_path('uploads/media');
+                    if (!file_exists($uploadDir)) {
+                        @mkdir($uploadDir, 0755, true);
+                    }
+                    $filename = 'post_' . uniqid() . '.' . $ext;
+                    file_put_contents($uploadDir . '/' . $filename, $contentData);
+                    $url = url('uploads/media/' . $filename);
+                }
             }
+
             if ($url) {
                 PostMedia::create([
                     'post_id' => $post->id,
