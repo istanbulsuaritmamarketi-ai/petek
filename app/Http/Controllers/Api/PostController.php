@@ -443,7 +443,7 @@ class PostController extends Controller
     {
         $post = Post::with([
             'comments' => function ($q) {
-                $q->with(['user', 'likes', 'replies.user', 'replies.likes']);
+                $q->with(['user', 'likes', 'replies.user', 'replies.likes', 'replies.replyToUser']);
             }
         ])->findOrFail($id);
 
@@ -452,10 +452,21 @@ class PostController extends Controller
             $authorAvatar = $c->is_anonymous ? null : $c->user?->avatar;
             $commentLikes = $c->likes->pluck('id')->map(fn($id) => (string)$id)->toArray();
 
-            $replies = $c->replies->map(function ($r) {
+            $replies = $c->replies->map(function ($r) use ($c) {
                 $replyNickname = $r->is_anonymous ? ($r->user?->department ?? 'Bilinmeyen') : ($r->user?->nickname ?? 'Bilinmeyen');
                 $replyAvatar = $r->is_anonymous ? null : $r->user?->avatar;
                 $replyLikes = $r->likes->pluck('id')->map(fn($id) => (string)$id)->toArray();
+
+                $replyToNickname = null;
+                if ($r->replyToUser) {
+                    $replyToNickname = $r->replyToUser->nickname;
+                } elseif ($r->reply_to_user_id) {
+                    $replyToNickname = \App\Models\User::find($r->reply_to_user_id)?->nickname;
+                }
+                if (!$replyToNickname) {
+                    $replyToNickname = $c->is_anonymous ? ($c->user?->department ?? 'Kullanıcı') : ($c->user?->nickname ?? 'Kullanıcı');
+                }
+
                 return [
                     'id' => (string) $r->id,
                     'content' => $r->content,
@@ -467,6 +478,8 @@ class PostController extends Controller
                     'created_at' => $r->created_at->toISOString(),
                     'likes' => $replyLikes,
                     'view_count' => $r->view_count,
+                    'reply_to_user_id' => $r->reply_to_user_id ? (string) $r->reply_to_user_id : null,
+                    'reply_to_nickname' => $replyToNickname,
                 ];
             })->toArray();
 
@@ -659,17 +672,32 @@ class PostController extends Controller
             ], 422);
         }
 
-        $parent = Comment::where('post_id', $postId)->findOrFail($commentId);
+        $targetComment = Comment::where('post_id', $postId)->findOrFail($commentId);
         $isAnon = filter_var($request->input('is_anonymous', false), FILTER_VALIDATE_BOOLEAN);
+
+        // Kök yorumu bul: Eğer $targetComment zaten bir yanıtsa (parent_id doluysa), zinciri kök yoruma bağla.
+        $rootParentId = $targetComment->parent_id ?: $targetComment->id;
+
+        // Kime yanıt verildiğini belirle: İstekten gelen reply_to_user_id veya hedef yorumun sahibi
+        $replyToUserId = $request->input('reply_to_user_id') ?: $targetComment->user_id;
 
         $reply = Comment::create([
             'post_id' => $postId,
             'user_id' => $user->id,
-            'parent_id' => $parent->id,
+            'parent_id' => $rootParentId,
+            'reply_to_user_id' => $replyToUserId,
             'content' => $request->content,
             'is_anonymous' => $isAnon,
             'view_count' => 0,
         ]);
+
+        $reply->load('replyToUser');
+        $replyToNickname = null;
+        if ($reply->replyToUser) {
+            $replyToNickname = $reply->replyToUser->nickname;
+        } elseif ($targetComment->user) {
+            $replyToNickname = $targetComment->user->nickname;
+        }
 
         return response()->json([
             'message' => 'Yanıt eklendi',
@@ -684,6 +712,8 @@ class PostController extends Controller
                 'created_at' => $reply->created_at->toISOString(),
                 'likes' => [],
                 'view_count' => 0,
+                'reply_to_user_id' => $replyToUserId ? (string) $replyToUserId : null,
+                'reply_to_nickname' => $replyToNickname,
             ]
         ], 201);
     }
@@ -691,7 +721,7 @@ class PostController extends Controller
     public function toggleReplyLike($postId, $commentId, $replyId, Request $request)
     {
         $user = $request->user();
-        $reply = Comment::where('post_id', $postId)->where('parent_id', $commentId)->findOrFail($replyId);
+        $reply = Comment::where('post_id', $postId)->findOrFail($replyId);
 
         if ($reply->likes()->where('user_id', $user->id)->exists()) {
             $reply->likes()->detach($user->id);
@@ -744,7 +774,7 @@ class PostController extends Controller
     {
         $user = $request->user();
         $post = Post::findOrFail($postId);
-        $reply = Comment::where('post_id', $postId)->where('parent_id', $commentId)->findOrFail($replyId);
+        $reply = Comment::where('post_id', $postId)->findOrFail($replyId);
 
         if ((int) $reply->user_id !== (int) $user->id && (int) $post->user_id !== (int) $user->id && $user->role !== 'admin') {
             return response()->json(['detail' => 'Bu yanıtı silme yetkiniz yok'], 403);
