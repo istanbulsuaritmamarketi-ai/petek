@@ -15,6 +15,62 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private function sanitizeAndFormatAvatar(User $user): ?string
+    {
+        $raw = $user->getRawOriginal('avatar');
+        if (empty($raw)) {
+            return null;
+        }
+
+        // Clean HTTP / HTTPS URL
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://') || str_starts_with($raw, '/uploads/') || str_starts_with($raw, 'uploads/')) {
+            return $raw;
+        }
+
+        // Base64 data URI
+        if (str_starts_with($raw, 'data:image') || str_starts_with($raw, 'data:application')) {
+            $commaPos = strpos($raw, ',');
+            if ($commaPos === false) {
+                $user->avatar = null;
+                $user->saveQuietly();
+                return null;
+            }
+
+            $decoded = base64_decode(substr($raw, $commaPos + 1), true);
+            if ($decoded === false || strlen($decoded) < 100 || (function_exists('getimagesizefromstring') && !@getimagesizefromstring($decoded))) {
+                // Image corrupted (e.g. truncated at 1MB like user 5) - heal profile by clearing corrupted data
+                $user->avatar = null;
+                $user->saveQuietly();
+                return null;
+            }
+
+            // Valid base64: save to local file so we don't send 1MB of JSON in every API response!
+            try {
+                $imageInfo = @getimagesizefromstring($decoded);
+                $ext = 'jpg';
+                if (!empty($imageInfo['mime'])) {
+                    if (str_contains($imageInfo['mime'], 'png')) $ext = 'png';
+                    elseif (str_contains($imageInfo['mime'], 'webp')) $ext = 'webp';
+                }
+                $filename = 'avatar_' . $user->id . '_' . time() . '_' . Str::random(4) . '.' . $ext;
+                $uploadDir = public_path('uploads/avatars');
+                if (!file_exists($uploadDir)) {
+                    @mkdir($uploadDir, 0755, true);
+                }
+                file_put_contents($uploadDir . '/' . $filename, $decoded);
+                $fileUrl = url('uploads/avatars/' . $filename);
+
+                $user->avatar = $fileUrl;
+                $user->saveQuietly();
+                return $fileUrl;
+            } catch (\Throwable $e) {
+                return $raw;
+            }
+        }
+
+        return $raw;
+    }
+
     private function formatUser(User $user): array
     {
         return [
@@ -29,7 +85,7 @@ class AuthController extends Controller
             'account_type' => $user->account_type ?? 'personal',
             'badges' => $user->badges ?? ['yeni_arı'],
             'bee_points' => $user->bee_points ?? 10,
-            'avatar' => $user->avatar,
+            'avatar' => $this->sanitizeAndFormatAvatar($user),
             'bio' => $user->bio,
             'post_count' => $user->post_count ?? $user->posts()->count(),
             'focus_minutes' => $user->focus_minutes ?? 0,
@@ -215,13 +271,29 @@ class AuthController extends Controller
 
     private function storeAvatarBase64(string $base64Data, $userId): string
     {
+        $commaPos = strpos($base64Data, ',');
+        $contentData = $commaPos !== false ? base64_decode(substr($base64Data, $commaPos + 1), true) : false;
+
+        if ($contentData === false || strlen($contentData) < 100) {
+            throw ValidationException::withMessages(['avatar' => ['Geçersiz veya bozuk görsel verisi.']]);
+        }
+
+        $imgInfo = function_exists('getimagesizefromstring') ? @getimagesizefromstring($contentData) : null;
+        if (function_exists('getimagesizefromstring') && !$imgInfo) {
+            throw ValidationException::withMessages(['avatar' => ['Yüklenen görsel formatı okunamadı veya dosya bozuk.']]);
+        }
+
         try {
             $cloudinary = app(CloudinaryService::class);
             return $cloudinary->uploadBase64($base64Data, 'petek_avatars');
         } catch (\Throwable $e) {
             Log::warning('Cloudinary base64 avatar upload failed, using local storage: ' . $e->getMessage());
             $ext = 'jpg';
-            if (preg_match('/^data:(?:image|application)\/([a-zA-Z0-9\+\-\.]+);base64,/', $base64Data, $match)) {
+            if ($imgInfo && !empty($imgInfo['mime'])) {
+                if (str_contains($imgInfo['mime'], 'png')) $ext = 'png';
+                elseif (str_contains($imgInfo['mime'], 'webp')) $ext = 'webp';
+                elseif (str_contains($imgInfo['mime'], 'gif')) $ext = 'gif';
+            } elseif (preg_match('/^data:(?:image|application)\/([a-zA-Z0-9\+\-\.]+);base64,/', $base64Data, $match)) {
                 $rawMime = strtolower($match[1]);
                 if (str_contains($rawMime, 'png')) $ext = 'png';
                 elseif (str_contains($rawMime, 'webp')) $ext = 'webp';
@@ -233,7 +305,7 @@ class AuthController extends Controller
                 elseif (str_contains($rawMime, 'bmp')) $ext = 'bmp';
                 else $ext = 'jpg';
             }
-            $contentData = base64_decode(substr($base64Data, strpos($base64Data, ',') + 1));
+
             $filename = 'avatar_' . $userId . '_' . time() . '_' . Str::random(6) . '.' . $ext;
             $uploadDir = public_path('uploads/avatars');
             if (!file_exists($uploadDir)) {

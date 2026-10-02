@@ -188,4 +188,35 @@ class User extends Authenticatable
             'campus_name' => $campusName,
         ];
     }
+
+    public function getAvatarAttribute($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        // Clean URL
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, '/uploads/') || str_starts_with($value, 'uploads/')) {
+            return $value;
+        }
+
+        // Base64 data URI: check if valid image; if corrupted (e.g. truncated at 1MB), return null
+        if (str_starts_with($value, 'data:image') || str_starts_with($value, 'data:application')) {
+            $commaPos = strpos($value, ',');
+            if ($commaPos === false) {
+                return null;
+            }
+            $raw = substr($value, $commaPos + 1);
+            $decoded = base64_decode($raw, true);
+            if ($decoded === false || strlen($decoded) < 100) {
+                return null;
+            }
+            if (function_exists('getimagesizefromstring') && !@getimagesizefromstring($decoded)) {
+                return null;
+            }
+            return $value;
+        }
+
+        return $value;
+    }
 }
