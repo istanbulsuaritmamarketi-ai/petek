@@ -122,7 +122,31 @@ class ChatController extends Controller
             'content.max' => 'Mesaj uzunluğu en fazla 2000 karakter olabilir.',
         ]);
         $user = $request->user();
-        $conversation = Conversation::with('participants')->findOrFail($conversationId);
+        $conversation = Conversation::with('participants')->find($conversationId);
+        if (!$conversation) {
+            $targetUser = User::find($conversationId);
+            if ($targetUser) {
+                if ((string)$user->id === (string)$targetUser->id) {
+                    return response()->json(['detail' => 'Kendinizle sohbet edemezsiniz'], 400);
+                }
+                $conversation = Conversation::whereHas('participants', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                })->whereHas('participants', function ($q) use ($targetUser) {
+                    $q->where('user_id', $targetUser->id);
+                })->first();
+
+                if (!$conversation) {
+                    $conversation = Conversation::create([
+                        'last_message' => null,
+                        'last_message_at' => now(),
+                    ]);
+                    $conversation->participants()->attach([$user->id, $targetUser->id]);
+                }
+                $conversation->load('participants');
+            } else {
+                return response()->json(['detail' => 'Sohbet bulunamadı'], 404);
+            }
+        }
 
         if (!$conversation->participants()->where('user_id', $user->id)->exists()) {
             return response()->json(['detail' => 'Yetkisiz erişim'], 403);

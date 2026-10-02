@@ -40,11 +40,15 @@ class CampusVibeController extends Controller
             'location_name' => 'nullable|string|max:100',
         ]);
 
+        $locationName = !empty($validated['location_name']) && trim($validated['location_name']) !== ''
+            ? trim($validated['location_name'])
+            : null;
+
         $vibe = CampusVibe::create([
             'user_id' => $user->id,
             'emoji' => $validated['emoji'] ?? '⚡',
             'content' => $validated['content'],
-            'location_name' => $validated['location_name'] ?? null,
+            'location_name' => $locationName,
             'expires_at' => now()->addHours(24),
         ]);
 
