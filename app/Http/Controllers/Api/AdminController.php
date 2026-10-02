@@ -677,6 +677,7 @@ class AdminController extends Controller
             'banner_bg' => '#D4951A',
             'banner_text_color' => '#000000',
             'banner_icon' => 'megaphone-outline',
+            'auto_dismiss_seconds' => 7,
         ];
         $banner = \App\Models\AppSetting::get('header_banner', $defaultBanner);
         return response()->json($banner ?: $defaultBanner);
@@ -698,6 +699,7 @@ class AdminController extends Controller
             'banner_bg' => (string) $request->input('banner_bg', '#D4951A'),
             'banner_text_color' => (string) $request->input('banner_text_color', '#000000'),
             'banner_icon' => (string) $request->input('banner_icon', 'megaphone-outline'),
+            'auto_dismiss_seconds' => (int) $request->input('auto_dismiss_seconds', 7),
         ];
         \App\Models\AppSetting::set('header_banner', $payload, 'Akış tepe duyuru bannerı ayarları');
         return response()->json(['message' => 'Duyuru bannerı başarıyla kaydedildi.', 'banner' => $payload]);
