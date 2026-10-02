@@ -939,5 +939,45 @@ class AdminController extends Controller
             'message' => 'Yayınlanan bildirim başarıyla silindi ve yayından kaldırıldı.',
         ]);
     }
+
+    public function getModerationLogs(Request $request)
+    {
+        $logs = \App\Models\ModerationLog::with('user:id,name,nickname,avatar,department')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        return response()->json($logs);
+    }
+
+    public function toggleUserEmailVerification(Request $request, $id)
+    {
+        $targetUser = \App\Models\User::findOrFail($id);
+
+        if ($targetUser->email_verified_at) {
+            // Cannot unverify protected super admin
+            if (in_array((int)$targetUser->id, [1, 3]) || $targetUser->email === 'uzar23@itu.edu.tr') {
+                return response()->json(['detail' => 'Korumalı süper admin hesabının doğrulaması kaldırılamaz.'], 403);
+            }
+            $targetUser->email_verified_at = null;
+            $targetUser->save();
+            $msg = "{$targetUser->nickname} kullanıcısının e-posta doğrulaması kaldırıldı.";
+        } else {
+            $targetUser->email_verified_at = now();
+            $badges = is_array($targetUser->badges) ? $targetUser->badges : [];
+            if (!in_array('onayli_ari', $badges)) {
+                $badges[] = 'onayli_ari';
+                $targetUser->badges = $badges;
+            }
+            $targetUser->save();
+            $msg = "{$targetUser->nickname} kullanıcısı doğrulandı ve İTÜ Onaylı Arı rozeti tanımlandı.";
+        }
+
+        return response()->json([
+            'message' => $msg,
+            'is_email_verified' => !is_null($targetUser->email_verified_at),
+            'email_verified_at' => $targetUser->email_verified_at?->toISOString(),
+        ]);
+    }
 }
 

@@ -239,6 +239,18 @@ class PostController extends Controller
     {
         $user = $request->user();
         $content = $request->input('content', '');
+
+        // 🤖 Arı Muhafız: Cinsel / Müstehcen İçerik & Medya Denetimi
+        $uploadedFile = $request->file('file') ?? $request->file('image');
+        $violation = \App\Services\ContentModerationService::inspectAndLog($content, $uploadedFile, $user, 'post');
+        if ($violation && $violation['blocked']) {
+            return response()->json([
+                'detail' => $violation['message'],
+                'reason' => $violation['reason'],
+                'matched' => $violation['matched'] ?? [],
+            ], 422);
+        }
+
         $postType = $request->input('post_type', 'general');
         $isAnonymous = filter_var($request->input('is_anonymous', false), FILTER_VALIDATE_BOOLEAN);
 
@@ -581,6 +593,16 @@ class PostController extends Controller
     {
         $request->validate(['content' => 'required|string']);
         $user = $request->user();
+
+        // 🤖 Arı Muhafız: Cinsel / Müstehcen İçerik Denetimi
+        $violation = \App\Services\ContentModerationService::inspectAndLog($request->content, null, $user, 'comment');
+        if ($violation && $violation['blocked']) {
+            return response()->json([
+                'detail' => $violation['message'],
+                'reason' => $violation['reason'],
+            ], 422);
+        }
+
         $post = Post::findOrFail($id);
         $isAnon = filter_var($request->input('is_anonymous', false), FILTER_VALIDATE_BOOLEAN);
 
@@ -627,6 +649,16 @@ class PostController extends Controller
     {
         $request->validate(['content' => 'required|string']);
         $user = $request->user();
+
+        // 🤖 Arı Muhafız: Cinsel / Müstehcen İçerik Denetimi
+        $violation = \App\Services\ContentModerationService::inspectAndLog($request->content, null, $user, 'comment_reply');
+        if ($violation && $violation['blocked']) {
+            return response()->json([
+                'detail' => $violation['message'],
+                'reason' => $violation['reason'],
+            ], 422);
+        }
+
         $parent = Comment::where('post_id', $postId)->findOrFail($commentId);
         $isAnon = filter_var($request->input('is_anonymous', false), FILTER_VALIDATE_BOOLEAN);
 

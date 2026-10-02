@@ -184,6 +184,20 @@ class ChatController extends Controller
             return response()->json(['detail' => 'Mesaj içeriği boş olamaz'], 422);
         }
 
+        // 🤖 Arı Muhafız: Cinsel / Müstehcen İçerik Denetimi
+        $violation = \App\Services\ContentModerationService::inspectAndLog(
+            $request->input('content', ''),
+            $request->input('image'),
+            $user,
+            'chat_message'
+        );
+        if ($violation && $violation['blocked']) {
+            return response()->json([
+                'detail' => $violation['message'],
+                'reason' => $violation['reason'],
+            ], 422);
+        }
+
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id' => $user->id,

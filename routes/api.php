@@ -43,7 +43,12 @@ Route::prefix('library')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/send-verification-code', [AuthController::class, 'sendVerificationCode']);
+        Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
+        Route::get('/verification-status', [AuthController::class, 'getVerificationStatus']);
+    });
 });
 
 // --- PROFILE & USERS ROUTES ---
@@ -217,6 +222,10 @@ Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::get('/broadcasts', [AdminController::class, 'getBroadcastNotifications']);
     Route::post('/broadcasts', [AdminController::class, 'sendBroadcastNotification']);
     Route::delete('/broadcasts/{id}', [AdminController::class, 'deleteBroadcastNotification']);
+
+    // Moderation & Guard Bot Logs
+    Route::get('/moderation/logs', [AdminController::class, 'getModerationLogs']);
+    Route::post('/users/{id}/toggle-verification', [AdminController::class, 'toggleUserEmailVerification']);
 });
 
 // --- DEALS & DISCOUNTS ---

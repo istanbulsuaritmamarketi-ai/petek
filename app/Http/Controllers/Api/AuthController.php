@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Post;
 use App\Models\Comment;
+use App\Models\EmailVerificationCode;
 use App\Services\CloudinaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -92,6 +94,8 @@ class AuthController extends Controller
             'follower_count' => $user->followers()->count(),
             'following_count' => $user->following()->count(),
             'share_campus_status' => (bool) ($user->share_campus_status ?? true),
+            'is_email_verified' => !is_null($user->email_verified_at),
+            'email_verified_at' => $user->email_verified_at?->toISOString(),
             'is_on_campus' => $user->isOnCampus(),
             'campus_status' => $user->getCampusStatus(),
             'created_at' => $user->created_at->toISOString(),
@@ -636,5 +640,167 @@ class AuthController extends Controller
             'department' => $u->department,
             'avatar' => $u->avatar,
         ]));
+    }
+
+    public function sendVerificationCode(Request $request)
+    {
+        $user = $request->user();
+        if ($user->email_verified_at) {
+            return response()->json([
+                'message' => 'E-posta adresiniz zaten doğrulanmıştır.',
+                'is_verified' => true,
+            ]);
+        }
+
+        // Dakikada en fazla 2 kod talebi sınırı
+        $recentCount = EmailVerificationCode::where('email', $user->email)
+            ->where('created_at', '>', now()->subMinutes(2))
+            ->count();
+        if ($recentCount >= 2) {
+            return response()->json([
+                'detail' => 'Lütfen yeni bir kod istemeden önce 2 dakika bekleyin.',
+            ], 429);
+        }
+
+        $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+
+        // Eski kodları temizle ve yenisini kaydet
+        EmailVerificationCode::where('email', $user->email)->delete();
+        EmailVerificationCode::create([
+            'email' => $user->email,
+            'code' => $code,
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        // E-Posta gönderimi
+        try {
+            Mail::html($this->getVerificationEmailHtml($user->nickname, $code), function ($message) use ($user) {
+                $message->to($user->email)
+                    ->subject('🐝 İTÜ Petek — E-Posta Doğrulama Kodun: ' . $code);
+            });
+        } catch (\Throwable $e) {
+            Log::warning("E-posta gönderim uyarısı ({$user->email}): " . $e->getMessage());
+        }
+
+        Log::info("📧 [Email Verification] {$user->email} için doğrulama kodu üretildi: {$code}");
+
+        return response()->json([
+            'message' => "6 haneli doğrulama kodu {$user->email} adresinize gönderildi.",
+            'email' => $user->email,
+            'expires_in_minutes' => 15,
+            'debug_code' => config('app.debug') ? $code : null,
+        ]);
+    }
+
+    public function verifyEmail(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string|min:4|max:10',
+        ]);
+
+        $user = $request->user();
+        $inputCode = trim($request->input('code'));
+
+        $record = EmailVerificationCode::where('email', $user->email)
+            ->where('code', $inputCode)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$record) {
+            return response()->json([
+                'detail' => 'Geçersiz veya süresi dolmuş doğrulama kodu. Lütfen yeni bir kod isteyin.',
+            ], 422);
+        }
+
+        // Kullanıcıyı doğrula
+        $user->email_verified_at = now();
+
+        // İTÜ Onaylı Arı rozetini ekle
+        $badges = is_array($user->badges) ? $user->badges : [];
+        if (!in_array('onayli_ari', $badges)) {
+            $badges[] = 'onayli_ari';
+            $user->badges = $badges;
+        }
+
+        // 25 Arı Puanı Ödülü Ver
+        $user->bee_points = ($user->bee_points ?: 0) + 25;
+        $user->save();
+
+        // Kodu tüket
+        $record->delete();
+
+        return response()->json([
+            'message' => 'Tebrikler! E-posta adresiniz başarıyla doğrulandı. İTÜ Onaylı Arı rozeti ve +25 Arı Puanı hesabınıza yüklendi! 🐝',
+            'user' => $this->formatUser($user),
+        ]);
+    }
+
+    public function getVerificationStatus(Request $request)
+    {
+        $user = $request->user();
+        return response()->json([
+            'is_verified' => !is_null($user->email_verified_at),
+            'email' => $user->email,
+            'verified_at' => $user->email_verified_at?->toISOString(),
+        ]);
+    }
+
+    private function getVerificationEmailHtml(string $nickname, string $code): string
+    {
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İTÜ Petek Doğrulama Kodu</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0E0E12; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #FFFFFF;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0E0E12; padding: 40px 10px;">
+        <tr>
+            <td align="center">
+                <table width="100%" max-width="520" border="0" cellspacing="0" cellpadding="0" style="max-width: 520px; background-color: #17171E; border-radius: 20px; border: 1px solid rgba(253, 185, 19, 0.25); overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,0.5);">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 32px 24px 20px 24px; background: linear-gradient(180deg, rgba(253, 185, 19, 0.12) 0%, rgba(23, 23, 30, 0) 100%);">
+                            <div style="font-size: 38px; line-height: 1;">🐝</div>
+                            <h1 style="margin: 12px 0 4px 0; font-size: 24px; font-weight: 800; color: #FDB913; letter-spacing: 0.5px;">İTÜ PETEK</h1>
+                            <p style="margin: 0; font-size: 13px; color: #9CA3AF;">İstanbul Teknik Üniversitesi Öğrenci Platformu</p>
+                        </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 20px 32px 32px 32px; text-align: center;">
+                            <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 700; color: #FFFFFF;">Selam @{$nickname}!</h2>
+                            <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 22px; color: #D1D5DB;">
+                                İTÜ Petek hesabını doğrulamak, <strong style="color: #10B981;">İTÜ Onaylı Arı</strong> rozetini almak ve <strong style="color: #FDB913;">+25 Arı Puanı</strong> kazanmak için aşağıdaki 6 haneli güvenlik kodunu uygulamaya gir:
+                            </p>
+                            
+                            <!-- Kod Kutusu -->
+                            <div style="background-color: #0B0B0F; border: 2px dashed #FDB913; border-radius: 14px; padding: 18px; margin: 24px 0; display: inline-block; min-width: 220px;">
+                                <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #FDB913;">{$code}</span>
+                            </div>
+                            
+                            <p style="margin: 20px 0 0 0; font-size: 12px; color: #9CA3AF;">
+                                ⏱️ Bu kod <strong>15 dakika</strong> boyunca geçerlidir. Kodunuzu kimseyle paylaşmayın.
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 16px 24px; background-color: #121217; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: center;">
+                            <p style="margin: 0; font-size: 11px; color: #6B7280;">
+                                Bu işlemi siz başlatmadıysanız bu e-postayı güvenle göz ardı edebilirsiniz.<br>
+                                © 2026 İTÜ Petek — Tüm hakları saklıdır.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
     }
 }

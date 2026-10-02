@@ -40,6 +40,15 @@ class CampusVibeController extends Controller
             'location_name' => 'nullable|string|max:100',
         ]);
 
+        // 🤖 Arı Muhafız: Cinsel / Müstehcen İçerik Denetimi
+        $violation = \App\Services\ContentModerationService::inspectAndLog($validated['content'], null, $user, 'vibe');
+        if ($violation && $violation['blocked']) {
+            return response()->json([
+                'detail' => $violation['message'],
+                'reason' => $violation['reason'],
+            ], 422);
+        }
+
         $locationName = !empty($validated['location_name']) && trim($validated['location_name']) !== ''
             ? trim($validated['location_name'])
             : null;
