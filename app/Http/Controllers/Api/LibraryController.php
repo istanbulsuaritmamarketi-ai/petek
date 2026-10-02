@@ -11,80 +11,11 @@ class LibraryController extends Controller
 {
     private function ensureDefaultFloorsExist(): void
     {
-        if (LibraryFloor::count() === 0) {
-            $defaultFloors = [
-                [
-                    'name' => 'Kat 1 (Giriş & Grup Çalışma)',
-                    'floor_code' => 'kat_1',
-                    'building' => 'Mustafa İnan Kütüphanesi',
-                    'capacity' => 260,
-                    'occupancy_rate' => 0,
-                    'socket_status' => 'plentiful',
-                    'noise_level' => 'moderate',
-                    'wifi_quality' => 'Eduroam Güçlü',
-                    'report_count' => 0,
-                    'last_reported_at' => null,
-                ],
-                [
-                    'name' => 'Kat 2 (Bireysel & Prizli Masalar)',
-                    'floor_code' => 'kat_2',
-                    'building' => 'Mustafa İnan Kütüphanesi',
-                    'capacity' => 320,
-                    'occupancy_rate' => 0,
-                    'socket_status' => 'limited',
-                    'noise_level' => 'silent',
-                    'wifi_quality' => 'Eduroam Güçlü',
-                    'report_count' => 0,
-                    'last_reported_at' => null,
-                ],
-                [
-                    'name' => 'Kat 3 (Derin Sessiz Çalışma)',
-                    'floor_code' => 'kat_3',
-                    'building' => 'Mustafa İnan Kütüphanesi',
-                    'capacity' => 210,
-                    'occupancy_rate' => 0,
-                    'socket_status' => 'plentiful',
-                    'noise_level' => 'silent',
-                    'wifi_quality' => 'Eduroam Güçlü',
-                    'report_count' => 0,
-                    'last_reported_at' => null,
-                ],
-                [
-                    'name' => '7/24 Rezerv Salonu',
-                    'floor_code' => 'rezerv',
-                    'building' => 'Mustafa İnan Kütüphanesi',
-                    'capacity' => 150,
-                    'occupancy_rate' => 0,
-                    'socket_status' => 'limited',
-                    'noise_level' => 'silent',
-                    'wifi_quality' => 'Eduroam Mükemmel',
-                    'report_count' => 0,
-                    'last_reported_at' => null,
-                ],
-                [
-                    'name' => 'MED-A Açık Çalışma Alanı',
-                    'floor_code' => 'med_a',
-                    'building' => 'Merkezi Derslik Binası',
-                    'capacity' => 180,
-                    'occupancy_rate' => 0,
-                    'socket_status' => 'plentiful',
-                    'noise_level' => 'moderate',
-                    'wifi_quality' => 'Eduroam Orta',
-                    'report_count' => 0,
-                    'last_reported_at' => null,
-                ],
-            ];
-
-            foreach ($defaultFloors as $floorData) {
-                LibraryFloor::create($floorData);
-            }
-        }
+        // Auto-seeding disabled per user request: floors are now manually created by admin as needed
     }
 
     public function getRadar()
     {
-        $this->ensureDefaultFloorsExist();
-
         $floors = LibraryFloor::all()->map(function (LibraryFloor $floor) {
             $availableSeats = max(0, (int) round($floor->capacity * (1 - ($floor->occupancy_rate / 100))));
 
@@ -209,8 +140,6 @@ class LibraryController extends Controller
         if (!$user || !in_array($user->role, ['admin', 'moderator'])) {
             return response()->json(['detail' => 'Bu işlem için yetkiniz yok.'], 403);
         }
-
-        $this->ensureDefaultFloorsExist();
 
         $floors = LibraryFloor::all();
         return response()->json($floors);
