@@ -456,7 +456,7 @@ class PostController extends Controller
     {
         $post = Post::findOrFail($id);
         $likers = $post->likes()
-            ->select('users.id', 'users.nickname', 'users.name', 'users.avatar', 'users.department', 'users.faculty', 'users.role', 'users.bee_points')
+            ->select('users.id', 'users.nickname', 'users.name', 'users.avatar', 'users.department', 'users.faculty')
             ->orderByPivot('created_at', 'desc')
             ->get();
 
@@ -468,8 +468,6 @@ class PostController extends Controller
                 'avatar' => $u->avatar,
                 'department' => $u->department,
                 'faculty' => $u->faculty,
-                'role' => $u->role,
-                'bee_points' => (int) ($u->bee_points ?? 0),
             ];
         }));
     }
