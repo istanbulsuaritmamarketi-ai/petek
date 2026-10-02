@@ -14,6 +14,17 @@ class QuickLinkController extends Controller
         QuickLink::where('url', 'like', '%kart.itu.edu.tr%')
             ->update(['url' => 'https://kampuskart.itu.edu.tr/User/Login']);
 
+        // 404 veren veya kapanan eski servisleri (itunotkutusu, sks 404 alt sayfaları, oidb vb.) otomatik temizle
+        QuickLink::where('url', 'like', '%itunotkutusu.com%')
+            ->orWhere('url', 'like', '%oidb.itu.edu.tr%')
+            ->orWhere('url', 'like', '%sks.itu.edu.tr/yemekhane-hizmetleri%')
+            ->orWhere('url', 'like', '%sks.itu.edu.tr/hizmetler/ulasim-hizmetleri%')
+            ->delete();
+
+        // Eski kariyer linkini resmi İKM portalına çevir
+        QuickLink::where('url', 'like', '%kariyer.itu.edu.tr%')
+            ->update(['url' => 'https://ikm.itu.edu.tr']);
+
         $query = QuickLink::query();
 
         if ($request->filled('category') && $request->category !== 'all') {
