@@ -27,6 +27,7 @@ Route::prefix('dining')->group(function () {
         Route::post('/{id}/rate', [DiningController::class, 'rateMenu']);
         Route::post('/admin/menu', [DiningController::class, 'saveMenu']);
         Route::post('/admin/sync-sks', [DiningController::class, 'syncWithSks']);
+        Route::post('/admin/notify-rate', [DiningController::class, 'sendRatingBroadcast']);
         Route::post('/admin/{id}/notify', [DiningController::class, 'sendNotification']);
     });
 });

@@ -20,6 +20,10 @@ class DiningMenu extends Model
         'rating_count',
         'average_rating',
         'notification_sent',
+        'last_notified_at',
+        'notification_title',
+        'notification_body',
+        'notification_count',
     ];
 
     protected $casts = [
@@ -27,6 +31,8 @@ class DiningMenu extends Model
         'vegetarian_items' => 'array',
         'average_rating' => 'float',
         'notification_sent' => 'boolean',
+        'last_notified_at' => 'datetime',
+        'notification_count' => 'integer',
         'date' => 'date',
     ];
 

@@ -160,6 +160,10 @@ class DiningController extends Controller
             'user_rating' => $userRating,
             'user_comment' => $userComment,
             'notification_sent' => (bool) $menu->notification_sent,
+            'last_notified_at' => $menu->last_notified_at ? $menu->last_notified_at->toISOString() : null,
+            'notification_title' => $menu->notification_title,
+            'notification_body' => $menu->notification_body,
+            'notification_count' => (int) $menu->notification_count,
         ];
     }
 
@@ -403,12 +407,53 @@ class DiningController extends Controller
         }
 
         $menu = DiningMenu::findOrFail($id);
+
+        $mainDish = $menu->items[1] ?? ($menu->items[0] ?? 'Günün Yemeği');
+        $mealLabel = $menu->meal_type === 'dinner' ? 'akşam' : 'öğle';
+
+        $title = $request->input('title') ?: ("Günün " . ($menu->meal_type === 'dinner' ? 'Akşam' : 'Öğle') . " Menüsünü Puanla! 🍽️");
+        $body = $request->input('body') ?: ("Bugünkü {$mealLabel} menüsünü ({$mainDish}) tattın mı? Yemekhaneyi puanla, arı kovanına fikir ver! ⭐");
+
         $menu->notification_sent = true;
+        $menu->last_notified_at = now();
+        $menu->notification_title = $title;
+        $menu->notification_body = $body;
+        $menu->notification_count = ((int) $menu->notification_count) + 1;
         $menu->save();
 
         return response()->json([
-            'message' => 'Günün yemeği bildirimi tüm öğrencilere yayınlandı! 🍽️',
+            'message' => 'Yemekhane menüsünü puanlama bildirimi tüm öğrencilere yayınlandı! 📢',
             'menu' => $this->formatMenu($menu, $user->id),
         ]);
+    }
+
+    public function sendRatingBroadcast(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, ['admin', 'moderator'])) {
+            return response()->json(['detail' => 'Yetkisiz erişim.'], 403);
+        }
+
+        $mealType = $request->input('meal_type') ?: (now()->hour >= 15 ? 'dinner' : 'lunch');
+        $today = now()->toDateString();
+
+        $menu = DiningMenu::whereDate('date', $today)->where('meal_type', $mealType)->first();
+        if (!$menu) {
+            $crawled = $this->crawlItuSks($today, $mealType);
+            if ($crawled) {
+                $menu = DiningMenu::create([
+                    'date' => $today,
+                    'meal_type' => $mealType,
+                    'title' => $crawled['title'],
+                    'items' => $crawled['items'],
+                    'calories' => $crawled['calories'],
+                    'vegetarian_items' => $crawled['vegetarian_items'],
+                ]);
+            } else {
+                return response()->json(['detail' => 'Bugün için yemekhane menüsü bulunamadı. Lütfen önce menüyü ekleyin veya SKS\'den çekin.'], 404);
+            }
+        }
+
+        return $this->sendNotification($menu->id, $request);
     }
 }

@@ -498,24 +498,42 @@ class AdminController extends Controller
             ];
         }
 
-        // Dining (Yemekhane) Good Food Notification - ONLY when real students vote (at least 3 ratings and average >= 4.0)
-        $todayMenu = \App\Models\DiningMenu::whereDate('date', now()->toDateString())
-            ->where('rating_count', '>=', 3)
-            ->where('average_rating', '>=', 4.0)
-            ->latest('average_rating')
-            ->first();
+        // Dining (Yemekhane) Rate Notifications & Praised Menu Broadcasts
+        $todayMenus = \App\Models\DiningMenu::whereDate('date', now()->toDateString())->get();
 
-        if ($todayMenu) {
-            $mainItem = $todayMenu->items[1] ?? ($todayMenu->items[0] ?? 'Günün Yemeği');
-            $mealLabel = $todayMenu->meal_type === 'dinner' ? 'akşam' : 'öğle';
-            $notifications[] = [
-                'id' => 'dining-' . $todayMenu->id,
-                'type' => 'dining',
-                'title' => 'Yemekhanede Ziyafet Var! ⭐ ' . number_format($todayMenu->average_rating, 1),
-                'body' => "Bugün {$mealLabel} menüsü öğrenciler tarafından çok beğenildi ({$mainItem}). Kaçırma! 🍽️",
-                'is_read' => false,
-                'created_at' => $todayMenu->updated_at ? $todayMenu->updated_at->toISOString() : now()->toISOString(),
-            ];
+        foreach ($todayMenus as $dMenu) {
+            $mainItem = $dMenu->items[1] ?? ($dMenu->items[0] ?? 'Günün Yemeği');
+            $mealLabel = $dMenu->meal_type === 'dinner' ? 'akşam' : 'öğle';
+
+            // 1. Admin Broadcast: "Menüyü Puanla" notification sent by admin at any hour
+            if ($dMenu->notification_sent) {
+                $notifCount = $dMenu->notification_count ?: 1;
+                $notifTime = $dMenu->last_notified_at ?: $dMenu->updated_at;
+                $notifications[] = [
+                    'id' => 'dining-rate-' . $dMenu->id . '-v' . $notifCount,
+                    'type' => 'dining',
+                    'dining_id' => (string) $dMenu->id,
+                    'meal_type' => $dMenu->meal_type,
+                    'title' => $dMenu->notification_title ?: ("Günün " . ($dMenu->meal_type === 'dinner' ? 'Akşam' : 'Öğle') . " Menüsünü Puanla! 🍽️"),
+                    'body' => $dMenu->notification_body ?: "Bugünkü {$mealLabel} menüsünü ({$mainItem}) denedin mi? Yemekhaneyi puanla, arı kovanına fikir ver! ⭐",
+                    'is_read' => false,
+                    'created_at' => $notifTime ? $notifTime->toISOString() : now()->toISOString(),
+                ];
+            }
+
+            // 2. High rating praise (if 3+ votes and >= 4.0 average)
+            if ($dMenu->rating_count >= 3 && $dMenu->average_rating >= 4.0) {
+                $notifications[] = [
+                    'id' => 'dining-praise-' . $dMenu->id,
+                    'type' => 'dining',
+                    'dining_id' => (string) $dMenu->id,
+                    'meal_type' => $dMenu->meal_type,
+                    'title' => 'Yemekhanede Ziyafet Var! ⭐ ' . number_format($dMenu->average_rating, 1),
+                    'body' => "Bugün {$mealLabel} menüsü öğrenciler tarafından çok beğenildi ({$mainItem}). Kaçırma! 🍽️",
+                    'is_read' => false,
+                    'created_at' => $dMenu->updated_at ? $dMenu->updated_at->toISOString() : now()->toISOString(),
+                ];
+            }
         }
 
         $notifications[] = [
