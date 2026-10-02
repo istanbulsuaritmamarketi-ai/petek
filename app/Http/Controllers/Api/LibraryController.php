@@ -219,8 +219,8 @@ class LibraryController extends Controller
     public function storeFloor(Request $request)
     {
         $user = $request->user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['detail' => 'Bu işlem için admin yetkisi gerekiyor.'], 403);
+        if (!$user || !in_array($user->role, ['admin', 'moderator'])) {
+            return response()->json(['detail' => 'Bu işlem için yetkiniz yok.'], 403);
         }
 
         $validated = $request->validate([
@@ -268,11 +268,14 @@ class LibraryController extends Controller
     public function updateFloor(Request $request, $id)
     {
         $user = $request->user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['detail' => 'Bu işlem için admin yetkisi gerekiyor.'], 403);
+        if (!$user || !in_array($user->role, ['admin', 'moderator'])) {
+            return response()->json(['detail' => 'Bu işlem için yetkiniz yok.'], 403);
         }
 
-        $floor = LibraryFloor::findOrFail($id);
+        $floor = LibraryFloor::find($id);
+        if (!$floor) {
+            return response()->json(['detail' => 'Kat veya çalışma alanı bulunamadı.'], 404);
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
@@ -304,11 +307,15 @@ class LibraryController extends Controller
     public function deleteFloor(Request $request, $id)
     {
         $user = $request->user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['detail' => 'Bu işlem için admin yetkisi gerekiyor.'], 403);
+        if (!$user || !in_array($user->role, ['admin', 'moderator'])) {
+            return response()->json(['detail' => 'Bu işlem için yetkiniz yok.'], 403);
         }
 
-        $floor = LibraryFloor::findOrFail($id);
+        $floor = LibraryFloor::find($id);
+        if (!$floor) {
+            return response()->json(['detail' => 'Kat veya çalışma alanı bulunamadı.'], 404);
+        }
+
         LibraryReport::where('floor_id', $floor->id)->delete();
         $floor->delete();
 
