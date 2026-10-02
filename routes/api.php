@@ -103,6 +103,7 @@ Route::get('/settings/categories', [AdminController::class, 'getPostCategories']
 Route::get('/settings/bee-tiers', [AdminController::class, 'getBeeTiers']);
 Route::get('/settings/banner', [AdminController::class, 'getHeaderBanner']);
 Route::get('/settings/branding', [AdminController::class, 'getBrandingSettings']);
+Route::get('/settings/badges', [AdminController::class, 'getCustomBadges']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [AdminController::class, 'getNotifications']);
     Route::delete('/notifications/{id}', [AdminController::class, 'deleteNotification']);
@@ -201,6 +202,8 @@ Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::put('/settings/contact', [AdminController::class, 'updateContactSettings']);
     Route::get('/settings/branding', [AdminController::class, 'getBrandingSettings']);
     Route::put('/settings/branding', [AdminController::class, 'updateBrandingSettings']);
+    Route::get('/settings/badges', [AdminController::class, 'getCustomBadges']);
+    Route::put('/settings/badges', [AdminController::class, 'updateCustomBadges']);
     Route::put('/prices/{zoneId}/{priceId}', [AdminController::class, 'managePrice']);
     Route::post('/{action}/{userId}', [AdminController::class, 'userAction']);
 

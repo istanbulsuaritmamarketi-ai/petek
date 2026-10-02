@@ -859,6 +859,40 @@ class AdminController extends Controller
         return response()->json(['message' => 'Uygulama ikonu ve marka ayarları başarıyla güncellendi.', 'branding' => $payload]);
     }
 
+    public function getCustomBadges()
+    {
+        $defaultBadges = [
+            ['key' => 'onayli_ari', 'label' => 'İTÜ Onaylı Arı', 'icon' => 'checkmark-circle', 'color' => '#10B981'],
+            ['key' => 'kovan_lideri', 'label' => 'Kovan Lideri', 'icon' => 'trophy', 'color' => '#F59E0B'],
+            ['key' => 'topluluk_elcisi', 'label' => 'Topluluk Elçisi', 'icon' => 'megaphone', 'color' => '#8B5CF6'],
+            ['key' => 'super_odak', 'label' => 'Süper Odak', 'icon' => 'flame', 'color' => '#EF4444'],
+            ['key' => 'kod_ustasi', 'label' => 'Kod Ustası', 'icon' => 'code-slash', 'color' => '#06B6D4'],
+            ['key' => 'ari_muhendisi', 'label' => 'Arı Mühendisi', 'icon' => 'construct', 'color' => '#F97316'],
+            ['key' => 'aktif_arı', 'label' => 'Aktif Arı', 'icon' => 'flash', 'color' => '#4CAF50'],
+            ['key' => 'yardımsever', 'label' => 'Yardımsever', 'icon' => 'hand-left', 'color' => '#2196F3'],
+            ['key' => 'odaklanmış', 'label' => 'Odaklanmış', 'icon' => 'timer', 'color' => '#9C27B0'],
+            ['key' => 'popüler', 'label' => 'Popüler', 'icon' => 'heart', 'color' => '#E91E63'],
+            ['key' => 'kaşif', 'label' => 'Kaşif', 'icon' => 'compass', 'color' => '#FF5722'],
+            ['key' => 'yeni_arı', 'label' => 'Yeni Arı', 'icon' => 'star', 'color' => '#FDB913'],
+        ];
+        $badges = \App\Models\AppSetting::get('custom_badges', $defaultBadges);
+        return response()->json($badges ?: $defaultBadges);
+    }
+
+    public function updateCustomBadges(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['detail' => 'Bu işlem için admin yetkisi gerekiyor.'], 403);
+        }
+        $badges = $request->input('badges', []);
+        if (!is_array($badges)) {
+            return response()->json(['detail' => 'Geçerli rozet listesi gönderilmelidir.'], 422);
+        }
+        \App\Models\AppSetting::set('custom_badges', $badges, 'Özelleştirilebilir rozetler ve unvanlar');
+        return response()->json(['message' => 'Rozet havuzu başarıyla güncellendi.', 'badges' => $badges]);
+    }
+
     public function getBroadcastNotifications(Request $request)
     {
         $broadcasts = \App\Models\BroadcastNotification::with('sender:id,name,nickname,avatar')
