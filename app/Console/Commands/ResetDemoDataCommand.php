@@ -61,7 +61,16 @@ class ResetDemoDataCommand extends Command
             $this->info('✓ Library floors occupancy and report counts reset to 0.');
         }
 
-        // 6. Invariant Protection Check
+        // 6. Reset Old/Expired Vibes (24 saatten eski vibelar)
+        if (DB::getSchemaBuilder()->hasTable('campus_vibes')) {
+            $deletedVibes = DB::table('campus_vibes')
+                ->where('expires_at', '<=', now())
+                ->orWhere('created_at', '<=', now()->subHours(24))
+                ->delete();
+            $this->info("✓ Expired vibes cleaned ({$deletedVibes} removed).");
+        }
+
+        // 7. Invariant Protection Check
         $admin = DB::table('users')->where('id', 1)->first();
         $yigit = DB::table('users')->where('id', 3)->first();
         $this->info("✓ Admin accounts safe: Admin ID 1 ({$admin->email}), Yiğit Uzar ID 3 ({$yigit->email}).");

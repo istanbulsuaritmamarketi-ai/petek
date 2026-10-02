@@ -10,8 +10,14 @@ class CampusVibeController extends Controller
 {
     public function index()
     {
+        // 24 saat süresi dolmuş veya 24 saatten eski tüm vibe'ları veritabanından kalıcı olarak sil
+        CampusVibe::where('expires_at', '<=', now())
+            ->orWhere('created_at', '<=', now()->subHours(24))
+            ->delete();
+
         $vibes = CampusVibe::with(['user:id,nickname,avatar,department'])
             ->where('expires_at', '>', now())
+            ->where('created_at', '>', now()->subHours(24))
             ->latest()
             ->limit(30)
             ->get();
@@ -22,6 +28,11 @@ class CampusVibeController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
+
+        // Yeni paylaşım öncesi eski süresi dolmuş vibe'ları temizle
+        CampusVibe::where('expires_at', '<=', now())
+            ->orWhere('created_at', '<=', now()->subHours(24))
+            ->delete();
 
         $validated = $request->validate([
             'emoji' => 'nullable|string|max:16',
@@ -51,7 +62,14 @@ class CampusVibeController extends Controller
     public function destroy(Request $request, $id)
     {
         $user = $request->user();
-        $vibe = CampusVibe::where('id', $id)->where('user_id', $user->id)->first();
+        
+        $query = CampusVibe::where('id', $id);
+        // Adminler tüm vibe'ları silebilir, normal kullanıcılar yalnızca kendisininkini
+        if ($user->role !== 'admin') {
+            $query->where('user_id', $user->id);
+        }
+
+        $vibe = $query->first();
 
         if (!$vibe) {
             return response()->json(['message' => 'Vibe bulunamadı veya yetkiniz yok.'], 404);
@@ -59,6 +77,6 @@ class CampusVibeController extends Controller
 
         $vibe->delete();
 
-        return response()->json(['message' => 'Vibe silindi.']);
+        return response()->json(['message' => 'Vibe başarıyla silindi.']);
     }
 }
