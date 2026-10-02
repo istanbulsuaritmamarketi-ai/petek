@@ -434,6 +434,28 @@ class PostController extends Controller
         }
     }
 
+    public function getPostLikers($id, Request $request)
+    {
+        $post = Post::findOrFail($id);
+        $likers = $post->likes()
+            ->select('users.id', 'users.nickname', 'users.name', 'users.avatar', 'users.department', 'users.faculty', 'users.role', 'users.bee_points')
+            ->orderByPivot('created_at', 'desc')
+            ->get();
+
+        return response()->json($likers->map(function ($u) {
+            return [
+                'id' => (string) $u->id,
+                'nickname' => $u->nickname,
+                'name' => $u->name,
+                'avatar' => $u->avatar,
+                'department' => $u->department,
+                'faculty' => $u->faculty,
+                'role' => $u->role,
+                'bee_points' => (int) ($u->bee_points ?? 0),
+            ];
+        }));
+    }
+
     public function addComment(Request $request, $id)
     {
         $request->validate(['content' => 'required|string']);

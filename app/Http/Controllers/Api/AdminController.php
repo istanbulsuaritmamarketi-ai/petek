@@ -383,15 +383,106 @@ class AdminController extends Controller
             ->get();
 
         foreach ($recentComments as $comment) {
+            $actorName = $comment->is_anonymous ? 'Anonim Arı' : ($comment->user?->nickname ?? 'Bir kullanıcı');
             $notifications[] = [
                 'id' => 'comment-' . $comment->id,
                 'type' => 'comment',
-                'title' => 'Gönderine yeni yorum',
-                'body' => ($comment->is_anonymous ? 'Anonim Arı' : ($comment->user?->nickname ?? 'Bir kullanıcı')) . ': "' . mb_substr($comment->content, 0, 40) . '..."',
+                'title' => 'Gönderine yeni yorum 💬',
+                'body' => $actorName . ' gönderine yorum yaptı: "' . mb_substr($comment->content, 0, 45) . (mb_strlen($comment->content) > 45 ? '...' : '') . '"',
                 'post_id' => (string) $comment->post_id,
+                'user_id' => $comment->is_anonymous ? null : (string) $comment->user_id,
                 'is_read' => false,
                 'created_at' => $comment->created_at->toISOString(),
             ];
+        }
+
+        // Recent Likes on User's Posts
+        if ($userPostIds->isNotEmpty()) {
+            $recentLikes = \Illuminate\Support\Facades\DB::table('post_likes')
+                ->join('users', 'post_likes.user_id', '=', 'users.id')
+                ->join('posts', 'post_likes.post_id', '=', 'posts.id')
+                ->whereIn('post_likes.post_id', $userPostIds)
+                ->where('post_likes.user_id', '!=', $user->id)
+                ->select(
+                    'post_likes.id',
+                    'post_likes.post_id',
+                    'post_likes.user_id',
+                    'post_likes.created_at',
+                    'users.nickname as user_nickname',
+                    'posts.content as post_content'
+                )
+                ->orderByDesc('post_likes.created_at')
+                ->limit(15)
+                ->get();
+
+            foreach ($recentLikes as $like) {
+                $notifications[] = [
+                    'id' => 'like-' . $like->id,
+                    'type' => 'like',
+                    'title' => 'Yeni Beğeni ❤️',
+                    'body' => ($like->user_nickname ?? 'Bir kullanıcı') . ' gönderini beğendi.',
+                    'post_id' => (string) $like->post_id,
+                    'user_id' => (string) $like->user_id,
+                    'is_read' => false,
+                    'created_at' => $like->created_at ? \Carbon\Carbon::parse($like->created_at)->toISOString() : now()->toISOString(),
+                ];
+            }
+        }
+
+        // Replies to User's Comments
+        $userCommentIds = \App\Models\Comment::where('user_id', $user->id)->pluck('id');
+        if ($userCommentIds->isNotEmpty()) {
+            $recentReplies = \App\Models\Comment::with(['user', 'post'])
+                ->whereIn('parent_id', $userCommentIds)
+                ->where('user_id', '!=', $user->id)
+                ->latest()
+                ->limit(10)
+                ->get();
+
+            foreach ($recentReplies as $reply) {
+                $actorName = $reply->is_anonymous ? 'Anonim Arı' : ($reply->user?->nickname ?? 'Bir kullanıcı');
+                $notifications[] = [
+                    'id' => 'reply-' . $reply->id,
+                    'type' => 'comment',
+                    'title' => 'Yorumuna yeni yanıt 💬',
+                    'body' => $actorName . ' yorumuna yanıt verdi: "' . mb_substr($reply->content, 0, 45) . (mb_strlen($reply->content) > 45 ? '...' : '') . '"',
+                    'post_id' => (string) $reply->post_id,
+                    'user_id' => $reply->is_anonymous ? null : (string) $reply->user_id,
+                    'is_read' => false,
+                    'created_at' => $reply->created_at->toISOString(),
+                ];
+            }
+
+            // Likes on User's Comments
+            $recentCommentLikes = \Illuminate\Support\Facades\DB::table('comment_likes')
+                ->join('users', 'comment_likes.user_id', '=', 'users.id')
+                ->join('comments', 'comment_likes.comment_id', '=', 'comments.id')
+                ->whereIn('comment_likes.comment_id', $userCommentIds)
+                ->where('comment_likes.user_id', '!=', $user->id)
+                ->select(
+                    'comment_likes.id',
+                    'comment_likes.user_id',
+                    'comment_likes.comment_id',
+                    'comment_likes.created_at',
+                    'users.nickname as user_nickname',
+                    'comments.post_id'
+                )
+                ->orderByDesc('comment_likes.created_at')
+                ->limit(10)
+                ->get();
+
+            foreach ($recentCommentLikes as $cLike) {
+                $notifications[] = [
+                    'id' => 'clike-' . $cLike->id,
+                    'type' => 'like',
+                    'title' => 'Yorumuna Beğeni ❤️',
+                    'body' => ($cLike->user_nickname ?? 'Bir kullanıcı') . ' yorumunu beğendi.',
+                    'post_id' => (string) $cLike->post_id,
+                    'user_id' => (string) $cLike->user_id,
+                    'is_read' => false,
+                    'created_at' => $cLike->created_at ? \Carbon\Carbon::parse($cLike->created_at)->toISOString() : now()->toISOString(),
+                ];
+            }
         }
 
         $recentFollowers = $user->followers()->latest('user_follows.created_at')->limit(5)->get();

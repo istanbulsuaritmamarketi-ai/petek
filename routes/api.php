@@ -72,6 +72,7 @@ Route::prefix('posts')->group(function () {
     Route::get('/', [PostController::class, 'index']);
     Route::get('/{id}', [PostController::class, 'show']);
     Route::get('/{id}/comments', [PostController::class, 'getComments']);
+    Route::get('/{id}/likes', [PostController::class, 'getPostLikers']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [PostController::class, 'store']);
