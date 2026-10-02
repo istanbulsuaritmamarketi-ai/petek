@@ -282,9 +282,8 @@ class AdminController extends Controller
         ]);
     }
 
-    public function getNotifications(Request $request)
+    private function generateRawNotifications($user): array
     {
-        $user = $request->user();
         $notifications = [];
 
         $userPostIds = \App\Models\Post::where('user_id', $user->id)->pluck('id');
@@ -350,8 +349,77 @@ class AdminController extends Controller
         ];
 
         usort($notifications, fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
+        return $notifications;
+    }
 
-        return response()->json($notifications);
+    public function getNotifications(Request $request)
+    {
+        $user = $request->user();
+        $dismissed = $this->getUserDismissedNotifications($user);
+        $notifications = $this->generateRawNotifications($user);
+
+        // Filter out dismissed notification IDs
+        $filtered = array_values(array_filter($notifications, fn($n) => !in_array((string)$n['id'], $dismissed)));
+
+        return response()->json($filtered);
+    }
+
+    public function deleteNotification(Request $request, $id)
+    {
+        $user = $request->user();
+        $dismissed = $this->getUserDismissedNotifications($user);
+        $id = (string) $id;
+
+        if (!in_array($id, $dismissed)) {
+            $dismissed[] = $id;
+            $this->saveUserDismissedNotifications($user, $dismissed);
+        }
+
+        return response()->json(['message' => 'Bildirim başarıyla silindi.']);
+    }
+
+    public function clearAllNotifications(Request $request)
+    {
+        $user = $request->user();
+        $raw = $this->generateRawNotifications($user);
+        $allIds = array_map(fn($n) => (string)$n['id'], $raw);
+        $dismissed = $this->getUserDismissedNotifications($user);
+        $merged = array_values(array_unique(array_merge($dismissed, $allIds)));
+
+        $this->saveUserDismissedNotifications($user, $merged);
+
+        return response()->json(['message' => 'Tüm bildirimler başarıyla silindi.']);
+    }
+
+    private function getUserDismissedNotifications($user): array
+    {
+        $list = [];
+        try {
+            if (isset($user->dismissed_notifications) && is_array($user->dismissed_notifications)) {
+                $list = $user->dismissed_notifications;
+            }
+        } catch (\Throwable $e) {}
+
+        // Also merge with cached dismissed list
+        $cacheKey = "user_dismissed_notifs_{$user->id}";
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey, []);
+        if (is_array($cached)) {
+            $list = array_values(array_unique(array_merge($list, $cached)));
+        }
+
+        return array_map('strval', $list);
+    }
+
+    private function saveUserDismissedNotifications($user, array $dismissed): void
+    {
+        try {
+            $user->dismissed_notifications = $dismissed;
+            $user->save();
+        } catch (\Throwable $e) {}
+
+        // Always also save to cache
+        $cacheKey = "user_dismissed_notifs_{$user->id}";
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $dismissed, now()->addMonths(6));
     }
 
     public function getBeeTiers()

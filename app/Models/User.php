@@ -32,6 +32,7 @@ class User extends Authenticatable
         'location_updated_at',
         'club_name',
         'club_description',
+        'dismissed_notifications',
     ];
 
     protected $hidden = [
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_frozen' => 'boolean',
             'badges' => 'array',
+            'dismissed_notifications' => 'array',
             'location_updated_at' => 'datetime',
             'bee_points' => 'integer',
             'post_count' => 'integer',

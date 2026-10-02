@@ -97,8 +97,11 @@ Route::get('/settings/ads', [AdminController::class, 'getAdSettings']);
 Route::get('/settings/categories', [AdminController::class, 'getPostCategories']);
 Route::get('/settings/bee-tiers', [AdminController::class, 'getBeeTiers']);
 Route::get('/settings/banner', [AdminController::class, 'getHeaderBanner']);
-Route::get('/settings/contact', [AdminController::class, 'getContactSettings']);
-Route::middleware('auth:sanctum')->get('/notifications', [AdminController::class, 'getNotifications']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [AdminController::class, 'getNotifications']);
+    Route::delete('/notifications/{id}', [AdminController::class, 'deleteNotification']);
+    Route::delete('/notifications', [AdminController::class, 'clearAllNotifications']);
+});
 
 
 // --- RADAR & ZONES ROUTES ---
