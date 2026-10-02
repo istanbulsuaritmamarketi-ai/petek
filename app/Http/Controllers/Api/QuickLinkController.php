@@ -10,6 +10,10 @@ class QuickLinkController extends Controller
 {
     public function index(Request $request)
     {
+        // Eski kart.itu.edu.tr URL'sini otomatik olarak resmi güncel https://kampuskart.itu.edu.tr/User/Login bağlantısına çevir
+        QuickLink::where('url', 'like', '%kart.itu.edu.tr%')
+            ->update(['url' => 'https://kampuskart.itu.edu.tr/User/Login']);
+
         $query = QuickLink::query();
 
         if ($request->filled('category') && $request->category !== 'all') {

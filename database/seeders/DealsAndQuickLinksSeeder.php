@@ -247,7 +247,7 @@ class DealsAndQuickLinksSeeder extends Seeder
                     'category' => 'kampus',
                     'category_label' => 'Yemek & Bakiye',
                     'description' => 'Öğrenci kartına para yükleme, yemekhane geçiş geçmişi ve turnike bakiye.',
-                    'url' => 'https://kart.itu.edu.tr',
+                    'url' => 'https://kampuskart.itu.edu.tr/User/Login',
                     'icon' => 'card',
                     'color' => '#EF4444',
                     'badge' => null,
