@@ -524,5 +524,121 @@ class AdminController extends Controller
         \App\Models\AppSetting::set('contact_info', $payload, 'İletişim ve destek bilgileri');
         return response()->json(['message' => 'İletişim bilgileri başarıyla güncellendi.', 'contact' => $payload]);
     }
+
+    public function getBrandingSettings()
+    {
+        $defaultBranding = [
+            'app_name' => 'PETEK',
+            'app_title' => 'PETEK — İTÜ Öğrenci Kovanı',
+            'favicon_url' => '/branding/petek-gold.png',
+            'icon_url' => '/branding/petek-gold.png',
+            'logo_url' => '/branding/petek-emblem.png',
+            'active_preset' => 'petek_gold',
+            'theme_color' => '#FDB913',
+            'presets' => [
+                [
+                    'id' => 'petek_gold',
+                    'name' => 'Altın Bal Petek (Minimalist)',
+                    'url' => '/branding/petek-gold.png',
+                    'favicon' => '/branding/petek-gold.png',
+                    'description' => 'Işıltılı altın petek ve arı sembolü'
+                ],
+                [
+                    'id' => 'petek_emblem',
+                    'name' => 'PETEK İTÜ Amblem & Logo',
+                    'url' => '/branding/petek-emblem.png',
+                    'favicon' => '/branding/petek-emblem.png',
+                    'description' => 'Resmi PETEK İTÜ yazılı arma'
+                ],
+            ]
+        ];
+
+        $branding = \App\Models\AppSetting::get('branding_settings', $defaultBranding);
+        return response()->json($branding ?: $defaultBranding);
+    }
+
+    public function updateBrandingSettings(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['detail' => 'Bu işlem için admin yetkisi gerekiyor.'], 403);
+        }
+
+        $activePreset = (string) $request->input('active_preset', 'petek_gold');
+        $appName = (string) $request->input('app_name', 'PETEK');
+        $appTitle = (string) $request->input('app_title', 'PETEK — İTÜ Öğrenci Kovanı');
+        $themeColor = (string) $request->input('theme_color', '#FDB913');
+
+        $faviconUrl = '/branding/petek-gold.png';
+        $iconUrl = '/branding/petek-gold.png';
+        $logoUrl = '/branding/petek-emblem.png';
+
+        if ($activePreset === 'petek_emblem') {
+            $iconUrl = '/branding/petek-emblem.png';
+            $faviconUrl = '/branding/petek-emblem.png';
+            if (file_exists(public_path('branding/petek-emblem.png'))) {
+                @copy(public_path('branding/petek-emblem.png'), public_path('favicon.png'));
+            }
+        } elseif ($activePreset === 'custom') {
+            $customUrl = (string) $request->input('icon_url', '');
+            $imageBase64 = $request->input('image_base64');
+
+            if ($imageBase64) {
+                $base64Data = preg_replace('#^data:image/\w+;base64,#i', '', $imageBase64);
+                $decoded = base64_decode($base64Data);
+                if ($decoded) {
+                    $fileName = 'custom-icon-' . time() . '.png';
+                    $dir = public_path('uploads/branding');
+                    if (!file_exists($dir)) {
+                        @mkdir($dir, 0755, true);
+                    }
+                    $filePath = $dir . '/' . $fileName;
+                    file_put_contents($filePath, $decoded);
+                    $iconUrl = '/uploads/branding/' . $fileName;
+                    $faviconUrl = $iconUrl;
+
+                    @file_put_contents(public_path('favicon.png'), $decoded);
+                }
+            } elseif ($customUrl) {
+                $iconUrl = $customUrl;
+                $faviconUrl = $customUrl;
+            }
+        } else {
+            $iconUrl = '/branding/petek-gold.png';
+            $faviconUrl = '/branding/petek-gold.png';
+            if (file_exists(public_path('branding/petek-gold.png'))) {
+                @copy(public_path('branding/petek-gold.png'), public_path('favicon.png'));
+            }
+        }
+
+        $payload = [
+            'app_name' => $appName,
+            'app_title' => $appTitle,
+            'favicon_url' => $faviconUrl,
+            'icon_url' => $iconUrl,
+            'logo_url' => $logoUrl,
+            'active_preset' => $activePreset,
+            'theme_color' => $themeColor,
+            'presets' => [
+                [
+                    'id' => 'petek_gold',
+                    'name' => 'Altın Bal Petek (Minimalist)',
+                    'url' => '/branding/petek-gold.png',
+                    'favicon' => '/branding/petek-gold.png',
+                    'description' => 'Işıltılı altın petek ve arı sembolü'
+                ],
+                [
+                    'id' => 'petek_emblem',
+                    'name' => 'PETEK İTÜ Amblem & Logo',
+                    'url' => '/branding/petek-emblem.png',
+                    'favicon' => '/branding/petek-emblem.png',
+                    'description' => 'Resmi PETEK İTÜ yazılı arma'
+                ],
+            ]
+        ];
+
+        \App\Models\AppSetting::set('branding_settings', $payload, 'Uygulama ikonu ve marka ayarları');
+        return response()->json(['message' => 'Uygulama ikonu ve marka ayarları başarıyla güncellendi.', 'branding' => $payload]);
+    }
 }
 
