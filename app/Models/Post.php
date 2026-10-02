@@ -13,6 +13,7 @@ class Post extends Model
         'user_id',
         'content',
         'post_type',
+        'visibility',
         'is_anonymous',
         'hashtags',
         'view_count',

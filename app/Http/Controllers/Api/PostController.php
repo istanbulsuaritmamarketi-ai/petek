@@ -60,6 +60,8 @@ class PostController extends Controller
             'comment_count' => $post->comments_count ?? $post->allComments()->count(),
             'view_count' => $post->view_count,
             'is_archived' => $post->is_archived,
+            'visibility' => $post->visibility ?? 'public',
+            'is_friends_only' => ($post->visibility ?? 'public') === 'friends',
             'is_pinned' => (bool) ($post->is_pinned ?? false),
             'pinned_at' => $post->pinned_at?->toISOString(),
             'created_at' => $post->created_at->toISOString(),
@@ -117,6 +119,34 @@ class PostController extends Controller
             if (!empty($blockedUserIds)) {
                 $query->whereNotIn('user_id', $blockedUserIds);
             }
+        }
+
+        // Visibility filter:
+        // - 'public' posts are visible to all students and guests
+        // - 'friends' posts are visible to:
+        //     1. The author themselves
+        //     2. Admins
+        //     3. Friends of the author (the author follows the current user / mutual follow)
+        if (!$currentUser) {
+            $query->where(function ($vq) {
+                $vq->where('visibility', 'public')
+                   ->orWhereNull('visibility');
+            });
+        } elseif ($currentUser->role !== 'admin') {
+            $query->where(function ($vq) use ($currentUser) {
+                $vq->where('visibility', 'public')
+                   ->orWhereNull('visibility')
+                   ->orWhere('user_id', $currentUser->id)
+                   ->orWhere(function ($fq) use ($currentUser) {
+                       $fq->where('visibility', 'friends')
+                          ->whereExists(function ($ex) use ($currentUser) {
+                              $ex->select(DB::raw(1))
+                                 ->from('user_follows')
+                                 ->whereColumn('user_follows.follower_id', 'posts.user_id')
+                                 ->where('user_follows.following_id', $currentUser->id);
+                          });
+                   });
+            });
         }
 
         // Following filter: only posts by accounts the user follows (or pinned announcements)
@@ -220,10 +250,16 @@ class PostController extends Controller
             $extracted
         ))));
 
+        $visibility = $request->input('visibility', 'public');
+        if (!in_array($visibility, ['public', 'friends'])) {
+            $visibility = 'public';
+        }
+
         $post = Post::create([
             'user_id' => $user->id,
             'content' => $content,
             'post_type' => $postType,
+            'visibility' => $visibility,
             'is_anonymous' => $isAnonymous,
             'hashtags' => $allHashtags,
             'view_count' => 0,
@@ -330,6 +366,21 @@ class PostController extends Controller
                 $q->with(['user', 'likes', 'replies.user', 'replies.likes']);
             }
         ])->findOrFail($id);
+
+        // Visibility check for friends-only post
+        if (($post->visibility ?? 'public') === 'friends') {
+            $currentUser = auth('sanctum')->user() ?? request()->user();
+            $canView = $currentUser && (
+                (int)$currentUser->id === (int)$post->user_id ||
+                $currentUser->role === 'admin' ||
+                DB::table('user_follows')->where('follower_id', $post->user_id)->where('following_id', $currentUser->id)->exists()
+            );
+            if (!$canView) {
+                return response()->json([
+                    'message' => 'Bu gönderi yalnızca yazarın arkadaşlarına özeldir.'
+                ], 403);
+            }
+        }
 
         $post->increment('view_count');
 

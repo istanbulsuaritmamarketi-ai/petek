@@ -408,6 +408,20 @@ class AuthController extends Controller
 
         if (!$isOwner) {
             $query->where('is_anonymous', false);
+
+            $currentUser = $request->user();
+            $isAdmin = $currentUser && $currentUser->role === 'admin';
+            $isFriend = $currentUser && DB::table('user_follows')
+                ->where('follower_id', $userId)
+                ->where('following_id', $currentUser->id)
+                ->exists();
+
+            if (!$isAdmin && !$isFriend) {
+                $query->where(function ($sub) {
+                    $sub->where('visibility', 'public')
+                        ->orWhereNull('visibility');
+                });
+            }
         }
 
         $posts = $query->orderBy('created_at', 'desc')
@@ -424,6 +438,8 @@ class AuthController extends Controller
                 'like_count' => $p->likes->count(),
                 'comment_count' => $p->comments->count(),
                 'view_count' => $p->view_count,
+                'visibility' => $p->visibility ?? 'public',
+                'is_friends_only' => ($p->visibility ?? 'public') === 'friends',
                 'created_at' => $p->created_at->toISOString(),
             ];
         }));
