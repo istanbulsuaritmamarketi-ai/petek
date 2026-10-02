@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Post;
 use App\Models\Comment;
+use App\Services\CloudinaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -136,8 +139,18 @@ class AuthController extends Controller
             $user->faculty = trim($request->faculty);
         }
 
-        if ($request->has('avatar')) {
-            $user->avatar = $request->avatar;
+        if ($request->hasFile('avatar') || $request->hasFile('photo') || $request->hasFile('image') || $request->hasFile('file')) {
+            $file = $request->file('avatar') ?: ($request->file('photo') ?: ($request->file('image') ?: $request->file('file')));
+            $user->avatar = $this->storeAvatarFile($file, $user->id);
+        } elseif ($request->has('avatar') || $request->has('photo') || $request->has('image')) {
+            $avatarInput = $request->input('avatar') ?: ($request->input('photo') ?: $request->input('image'));
+            if (empty($avatarInput)) {
+                $user->avatar = null;
+            } elseif (str_starts_with($avatarInput, 'data:image') || str_starts_with($avatarInput, 'data:application')) {
+                $user->avatar = $this->storeAvatarBase64($avatarInput, $user->id);
+            } else {
+                $user->avatar = $avatarInput;
+            }
         }
 
         if ($request->has('bio')) {
@@ -147,6 +160,81 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json($this->formatUser($user));
+    }
+
+    public function uploadAvatar(Request $request)
+    {
+        $user = $request->user();
+
+        if ($request->hasFile('avatar') || $request->hasFile('photo') || $request->hasFile('image') || $request->hasFile('file')) {
+            $file = $request->file('avatar') ?: ($request->file('photo') ?: ($request->file('image') ?: $request->file('file')));
+            $user->avatar = $this->storeAvatarFile($file, $user->id);
+        } elseif ($request->has('avatar') || $request->has('photo') || $request->has('image')) {
+            $avatarInput = $request->input('avatar') ?: ($request->input('photo') ?: $request->input('image'));
+            if (empty($avatarInput)) {
+                $user->avatar = null;
+            } elseif (str_starts_with($avatarInput, 'data:image') || str_starts_with($avatarInput, 'data:application')) {
+                $user->avatar = $this->storeAvatarBase64($avatarInput, $user->id);
+            } else {
+                $user->avatar = $avatarInput;
+            }
+        }
+
+        $user->save();
+
+        return response()->json($this->formatUser($user));
+    }
+
+    private function storeAvatarFile($file, $userId): string
+    {
+        try {
+            $cloudinary = app(CloudinaryService::class);
+            return $cloudinary->uploadMedia($file, 'petek_avatars');
+        } catch (\Throwable $e) {
+            Log::warning('Cloudinary avatar upload failed, using local storage: ' . $e->getMessage());
+            $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'heic', 'heif', 'avif', 'bmp'])) {
+                $ext = 'jpg';
+            }
+            $filename = 'avatar_' . $userId . '_' . time() . '_' . Str::random(6) . '.' . $ext;
+            $uploadDir = public_path('uploads/avatars');
+            if (!file_exists($uploadDir)) {
+                @mkdir($uploadDir, 0755, true);
+            }
+            $file->move($uploadDir, $filename);
+            return url('uploads/avatars/' . $filename);
+        }
+    }
+
+    private function storeAvatarBase64(string $base64Data, $userId): string
+    {
+        try {
+            $cloudinary = app(CloudinaryService::class);
+            return $cloudinary->uploadBase64($base64Data, 'petek_avatars');
+        } catch (\Throwable $e) {
+            Log::warning('Cloudinary base64 avatar upload failed, using local storage: ' . $e->getMessage());
+            $ext = 'jpg';
+            if (preg_match('/^data:(?:image|application)\/([a-zA-Z0-9\+\-\.]+);base64,/', $base64Data, $match)) {
+                $rawMime = strtolower($match[1]);
+                if (str_contains($rawMime, 'png')) $ext = 'png';
+                elseif (str_contains($rawMime, 'webp')) $ext = 'webp';
+                elseif (str_contains($rawMime, 'gif')) $ext = 'gif';
+                elseif (str_contains($rawMime, 'svg')) $ext = 'svg';
+                elseif (str_contains($rawMime, 'heic')) $ext = 'heic';
+                elseif (str_contains($rawMime, 'heif')) $ext = 'heif';
+                elseif (str_contains($rawMime, 'avif')) $ext = 'avif';
+                elseif (str_contains($rawMime, 'bmp')) $ext = 'bmp';
+                else $ext = 'jpg';
+            }
+            $contentData = base64_decode(substr($base64Data, strpos($base64Data, ',') + 1));
+            $filename = 'avatar_' . $userId . '_' . time() . '_' . Str::random(6) . '.' . $ext;
+            $uploadDir = public_path('uploads/avatars');
+            if (!file_exists($uploadDir)) {
+                @mkdir($uploadDir, 0755, true);
+            }
+            file_put_contents($uploadDir . '/' . $filename, $contentData);
+            return url('uploads/avatars/' . $filename);
+        }
     }
 
     public function updateLocation(Request $request)

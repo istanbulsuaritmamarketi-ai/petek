@@ -56,7 +56,8 @@ Route::prefix('users')->group(function () {
         Route::get('/{id}/archived-posts', [AuthController::class, 'getUserArchivedPosts']);
         Route::get('/{id}/liked-posts', [AuthController::class, 'getUserLikedPosts']);
         Route::get('/{id}/replies', [AuthController::class, 'getUserReplies']);
-        Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::match(['put', 'post'], '/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/avatar', [AuthController::class, 'uploadAvatar']);
         Route::post('/location', [AuthController::class, 'updateLocation']);
         Route::post('/freeze', [AuthController::class, 'freezeAccount']);
         Route::delete('/me', [AuthController::class, 'deleteAccount']);
