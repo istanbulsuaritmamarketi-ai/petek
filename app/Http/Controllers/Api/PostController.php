@@ -89,7 +89,7 @@ class PostController extends Controller
         if (!$sort && $trending) {
             $sort = 'hot';
         } elseif (!$sort) {
-            $sort = 'newest';
+            $sort = 'smart';
         }
         $q = trim($request->get('q', ''));
         $skip = (int) $request->get('skip', 0);
@@ -186,8 +186,17 @@ class PostController extends Controller
 
             case 'following':
             case 'newest':
-            default:
                 $query->orderBy('created_at', 'desc');
+                break;
+
+            case 'hybrid':
+            case 'smart':
+            default:
+                // Akıllı / Hibrit Sıralama (Instagram/X Tarzı):
+                // Son 48 saatte yüksek beğeni/yorum/etkileşim alan sıcak gönderilere hafif bir ağırlık verilip,
+                // yeni gönderilerle harmanlanan dinamik zaman puanlaması.
+                $query->orderByRaw('UNIX_TIMESTAMP(posts.created_at) + (CASE WHEN TIMESTAMPDIFF(HOUR, posts.created_at, NOW()) <= 48 THEN LEAST(50400, ((SELECT COUNT(*) FROM post_likes WHERE post_likes.post_id = posts.id) * 1200 + (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) * 2400 + LEAST(posts.view_count, 500) * 10)) / (1 + TIMESTAMPDIFF(HOUR, posts.created_at, NOW()) * 0.05) ELSE 0 END) DESC')
+                      ->orderBy('created_at', 'desc');
                 break;
         }
 
