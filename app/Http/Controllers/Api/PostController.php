@@ -182,6 +182,9 @@ class PostController extends Controller
                 $filename = 'post_' . uniqid() . '.' . ($ext ?: 'jpg');
                 $file->move($uploadDir, $filename);
                 $url = url('uploads/media/' . $filename);
+                if (str_contains(config('app.url'), 'https://') || request()->isSecure() || str_contains($url, 'itupetek.com.tr')) {
+                    $url = str_replace('http://', 'https://', $url);
+                }
             }
 
             if ($url) {
@@ -198,7 +201,7 @@ class PostController extends Controller
             try {
                 $url = $this->cloudinary->uploadBase64($base64);
             } catch (\Exception $e) {
-                if (preg_match('/^data:image\/(\w+);base64,/', $base64, $match)) {
+                if (preg_match('/^data:(?:image|video)\/(\w+);base64,/', $base64, $match)) {
                     $ext = strtolower($match[1] === 'jpeg' ? 'jpg' : $match[1]);
                     $contentData = base64_decode(substr($base64, strpos($base64, ',') + 1));
                     $uploadDir = public_path('uploads/media');
@@ -208,6 +211,9 @@ class PostController extends Controller
                     $filename = 'post_' . uniqid() . '.' . $ext;
                     file_put_contents($uploadDir . '/' . $filename, $contentData);
                     $url = url('uploads/media/' . $filename);
+                    if (str_contains(config('app.url'), 'https://') || request()->isSecure() || str_contains($url, 'itupetek.com.tr')) {
+                        $url = str_replace('http://', 'https://', $url);
+                    }
                 }
             }
 

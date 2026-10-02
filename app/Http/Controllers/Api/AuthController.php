@@ -16,6 +16,8 @@ class AuthController extends Controller
     {
         return [
             'id' => (string) $user->id,
+            'name' => $user->name ?? $user->nickname,
+            'full_name' => $user->name ?? $user->nickname,
             'email' => $user->email,
             'nickname' => $user->nickname,
             'department' => $user->department ?? 'Bilinmiyor',
@@ -119,7 +121,19 @@ class AuthController extends Controller
             if (User::where('nickname', $request->nickname)->where('id', '!=', $user->id)->exists()) {
                 return response()->json(['detail' => 'Bu rumuz kullanılıyor'], 400);
             }
-            $user->nickname = $request->nickname;
+            $user->nickname = trim($request->nickname);
+        }
+
+        if ($request->filled('name') || $request->filled('full_name')) {
+            $user->name = trim($request->input('name', $request->input('full_name')));
+        }
+
+        if ($request->filled('department')) {
+            $user->department = trim($request->department);
+        }
+
+        if ($request->filled('faculty')) {
+            $user->faculty = trim($request->faculty);
         }
 
         if ($request->has('avatar')) {
@@ -127,7 +141,7 @@ class AuthController extends Controller
         }
 
         if ($request->has('bio')) {
-            $user->bio = $request->bio;
+            $user->bio = trim($request->bio);
         }
 
         $user->save();
