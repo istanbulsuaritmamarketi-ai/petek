@@ -60,6 +60,8 @@ class PostController extends Controller
             'comment_count' => $post->comments_count ?? $post->allComments()->count(),
             'view_count' => $post->view_count,
             'is_archived' => $post->is_archived,
+            'is_pinned' => (bool) ($post->is_pinned ?? false),
+            'pinned_at' => $post->pinned_at?->toISOString(),
             'created_at' => $post->created_at->toISOString(),
         ];
     }
@@ -141,9 +143,14 @@ class PostController extends Controller
         }
 
         if ($trending) {
-            $query->withCount('likes')->orderBy('likes_count', 'desc')->orderBy('created_at', 'desc');
+            $query->orderBy('is_pinned', 'desc')
+                  ->withCount('likes')
+                  ->orderBy('likes_count', 'desc')
+                  ->orderBy('created_at', 'desc');
         } else {
-            $query->orderBy('created_at', 'desc');
+            $query->orderBy('is_pinned', 'desc')
+                  ->orderBy('pinned_at', 'desc')
+                  ->orderBy('created_at', 'desc');
         }
 
         $posts = $query->skip($skip)->take($limit)->get();
@@ -669,5 +676,39 @@ class PostController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    public function togglePin(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['detail' => 'Yalnızca yöneticiler gönderi sabitleyebilir.'], 403);
+        }
+
+        $post = Post::findOrFail($id);
+
+        $willPin = !$post->is_pinned;
+
+        if ($willPin) {
+            // Unpin any previously pinned post so the new one is the primary pinned post
+            Post::where('is_pinned', true)
+                ->where('id', '!=', $post->id)
+                ->update(['is_pinned' => false, 'pinned_at' => null]);
+
+            $post->is_pinned = true;
+            $post->pinned_at = now();
+        } else {
+            $post->is_pinned = false;
+            $post->pinned_at = null;
+        }
+
+        $post->save();
+
+        return response()->json([
+            'message' => $post->is_pinned ? 'Gönderi akışın en başına sabitlendi 📌' : 'Gönderi sabitlemesi kaldırıldı',
+            'is_pinned' => (bool) $post->is_pinned,
+            'pinned_at' => $post->pinned_at?->toISOString(),
+            'post' => $this->formatPost($post, $user),
+        ]);
     }
 }

@@ -17,11 +17,15 @@ class Post extends Model
         'hashtags',
         'view_count',
         'is_archived',
+        'is_pinned',
+        'pinned_at',
     ];
 
     protected $casts = [
         'is_anonymous' => 'boolean',
         'is_archived' => 'boolean',
+        'is_pinned' => 'boolean',
+        'pinned_at' => 'datetime',
         'hashtags' => 'array',
         'view_count' => 'integer',
     ];

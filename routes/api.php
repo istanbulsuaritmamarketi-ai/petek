@@ -82,6 +82,7 @@ Route::prefix('posts')->group(function () {
         Route::post('/{id}/like', [PostController::class, 'toggleLike']);
         Route::post('/{id}/archive', [PostController::class, 'toggleArchive']);
         Route::post('/{id}/unarchive', [PostController::class, 'toggleArchive']);
+        Route::post('/{id}/pin', [PostController::class, 'togglePin']);
 
         // Comments & Replies
         Route::post('/{id}/comment', [PostController::class, 'addComment']);
