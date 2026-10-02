@@ -32,6 +32,7 @@ class PostController extends Controller
         $mediaList = $post->media->map(fn($m) => [
             'type' => $m->type,
             'url' => $m->url,
+            'image_size' => $m->thumbnail ?? 'instagram',
         ])->toArray();
 
         $likeIds = $post->likes->pluck('id')->map(fn($id) => (string)$id)->toArray();
@@ -40,6 +41,7 @@ class PostController extends Controller
             'id' => (string) $post->id,
             'content' => $post->content,
             'image' => !empty($mediaList) ? $mediaList[0]['url'] : null,
+            'image_size' => !empty($mediaList) ? ($mediaList[0]['image_size'] ?? 'instagram') : 'instagram',
             'media' => $mediaList,
             'post_type' => $post->post_type,
             'is_anonymous' => $isAnon,
@@ -202,6 +204,7 @@ class PostController extends Controller
                     'post_id' => $post->id,
                     'type' => $mediaType,
                     'url' => $url,
+                    'thumbnail' => $request->input('image_size', $request->input('aspect_ratio', 'instagram')),
                 ]);
             }
         } elseif ($request->has('image_base64') || ($request->has('image') && str_starts_with($request->input('image'), 'data:image'))) {
@@ -232,6 +235,7 @@ class PostController extends Controller
                     'post_id' => $post->id,
                     'type' => $mediaType,
                     'url' => $url,
+                    'thumbnail' => $request->input('image_size', $request->input('aspect_ratio', 'instagram')),
                 ]);
             }
         } elseif ($request->has('media') && is_array($request->input('media'))) {
@@ -241,6 +245,7 @@ class PostController extends Controller
                         'post_id' => $post->id,
                         'type' => $m['type'] ?? 'image',
                         'url' => $m['url'],
+                        'thumbnail' => $m['image_size'] ?? $request->input('image_size', 'instagram'),
                     ]);
                 }
             }
@@ -249,6 +254,7 @@ class PostController extends Controller
                 'post_id' => $post->id,
                 'type' => $request->input('media_type', 'image'),
                 'url' => $request->input('image'),
+                'thumbnail' => $request->input('image_size', 'instagram'),
             ]);
         }
 
