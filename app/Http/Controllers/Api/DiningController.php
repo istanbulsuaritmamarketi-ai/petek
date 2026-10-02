@@ -147,6 +147,33 @@ class DiningController extends Controller
             }
         }
 
+        $ratingsList = $menu->ratings()
+            ->with(['user' => function ($q) {
+                $q->select('id', 'name', 'nickname', 'avatar', 'department');
+            }])
+            ->orderByRaw('CASE WHEN comment IS NOT NULL AND comment != "" THEN 0 ELSE 1 END')
+            ->orderBy('updated_at', 'desc')
+            ->limit(50)
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'id' => (string) $r->id,
+                    'user_id' => (string) $r->user_id,
+                    'user_name' => $r->user?->nickname ?: ($r->user?->name ?: 'İTÜ Öğrencisi'),
+                    'user_nickname' => $r->user?->nickname ?: 'itu_ogrenci',
+                    'user_avatar' => $r->user?->avatar,
+                    'user_department' => $r->user?->department ?: 'İTÜ',
+                    'score' => (int) $r->score,
+                    'comment' => $r->comment ? trim($r->comment) : null,
+                    'created_at' => $r->created_at?->toISOString() ?? now()->toISOString(),
+                    'time_ago' => $r->updated_at ? $r->updated_at->diffForHumans() : '',
+                ];
+            })
+            ->values();
+
+        $ratingCount = $ratingsList->count() > 0 ? $ratingsList->count() : (int) $menu->rating_count;
+        $averageRating = $ratingsList->count() > 0 ? round($ratingsList->avg('score'), 1) : (float) $menu->average_rating;
+
         return [
             'id' => (string) $menu->id,
             'date' => $menu->date->format('Y-m-d'),
@@ -155,8 +182,8 @@ class DiningController extends Controller
             'items' => $menu->items ?: [],
             'calories' => $menu->calories ?: '850 kcal',
             'vegetarian_items' => $menu->vegetarian_items ?: [],
-            'rating_count' => (int) $menu->rating_count,
-            'average_rating' => (float) $menu->average_rating,
+            'rating_count' => $ratingCount,
+            'average_rating' => $averageRating,
             'user_rating' => $userRating,
             'user_comment' => $userComment,
             'notification_sent' => (bool) $menu->notification_sent,
@@ -164,6 +191,7 @@ class DiningController extends Controller
             'notification_title' => $menu->notification_title,
             'notification_body' => $menu->notification_body,
             'notification_count' => (int) $menu->notification_count,
+            'ratings' => $ratingsList,
         ];
     }
 
@@ -305,6 +333,39 @@ class DiningController extends Controller
             'menu' => $this->formatMenu($menu, $user->id),
         ]);
     }
+
+    public function deleteRating($id, Request $request)
+    {
+        $user = $request->user();
+        $rating = DiningRating::findOrFail($id);
+
+        if ($rating->user_id !== $user->id && !in_array($user->role, ['admin', 'moderator'])) {
+            return response()->json(['detail' => 'Bu değerlendirmeyi silme yetkiniz yok.'], 403);
+        }
+
+        $menuId = $rating->dining_menu_id;
+        $rating->delete();
+
+        // Recalculate menu stats
+        $menu = DiningMenu::find($menuId);
+        if ($menu) {
+            $ratings = DiningRating::where('dining_menu_id', $menu->id)->get();
+            $count = $ratings->count();
+            $sum = $ratings->sum('score');
+            $avg = $count > 0 ? round($sum / $count, 2) : 0;
+
+            $menu->rating_count = $count;
+            $menu->rating_sum = $sum;
+            $menu->average_rating = $avg;
+            $menu->save();
+        }
+
+        return response()->json([
+            'message' => 'Değerlendirmeniz başarıyla silindi.',
+            'menu' => $menu ? $this->formatMenu($menu, $user->id) : null,
+        ]);
+    }
+
 
     public function getHistory(Request $request)
     {

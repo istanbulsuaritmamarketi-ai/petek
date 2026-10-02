@@ -25,6 +25,7 @@ Route::prefix('dining')->group(function () {
     Route::get('/history', [DiningController::class, 'getHistory']);
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/rate', [DiningController::class, 'rateMenu']);
+        Route::delete('/ratings/{id}', [DiningController::class, 'deleteRating']);
         Route::post('/admin/menu', [DiningController::class, 'saveMenu']);
         Route::post('/admin/sync-sks', [DiningController::class, 'syncWithSks']);
         Route::post('/admin/notify-rate', [DiningController::class, 'sendRatingBroadcast']);
