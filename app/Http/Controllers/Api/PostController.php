@@ -31,7 +31,9 @@ class PostController extends Controller
 
         $mediaList = $post->media->map(fn($m) => [
             'type' => $m->type,
+            'media_type' => $m->type,
             'url' => $m->url,
+            'file_url' => $m->url,
             'image_size' => $m->thumbnail ?? 'instagram',
         ])->toArray();
 
