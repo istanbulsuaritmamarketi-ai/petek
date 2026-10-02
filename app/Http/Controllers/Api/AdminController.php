@@ -637,7 +637,7 @@ class AdminController extends Controller
             'banner_text' => '',
             'banner_image_url' => '',
             'banner_link' => '',
-            'banner_bg' => '#FFB800',
+            'banner_bg' => '#D4951A',
             'banner_text_color' => '#000000',
             'banner_icon' => 'megaphone-outline',
         ];
@@ -658,7 +658,7 @@ class AdminController extends Controller
             'banner_text' => (string) $request->input('banner_text', ''),
             'banner_image_url' => (string) $request->input('banner_image_url', ''),
             'banner_link' => (string) $request->input('banner_link', ''),
-            'banner_bg' => (string) $request->input('banner_bg', '#FFB800'),
+            'banner_bg' => (string) $request->input('banner_bg', '#D4951A'),
             'banner_text_color' => (string) $request->input('banner_text_color', '#000000'),
             'banner_icon' => (string) $request->input('banner_icon', 'megaphone-outline'),
         ];
