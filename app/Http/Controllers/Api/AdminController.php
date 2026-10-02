@@ -46,6 +46,8 @@ class AdminController extends Controller
             'bee_points' => (int) ($u->bee_points ?? 0),
             'focus_minutes' => (int) ($u->focus_minutes ?? 0),
             'is_banned' => $u->role === 'banned' || (bool)$u->is_frozen,
+            'is_frozen' => (bool)$u->is_frozen,
+            'badges' => is_array($u->badges) ? $u->badges : [],
             'created_at' => $u->created_at ? $u->created_at->toISOString() : '',
         ]));
     }
@@ -149,6 +151,11 @@ class AdminController extends Controller
 
         $targetUser = User::findOrFail($userId);
 
+        // Kırılmaz Kural: ID 1 ve ID 3 dokunulmazlığı
+        if (in_array((int)$targetUser->id, [1, 3]) && in_array($action, ['ban', 'demote', 'remove_moderator'])) {
+            return response()->json(['detail' => 'Korumalı admin hesapları engellenemez veya yetkisi alınamaz.'], 403);
+        }
+
         // Moderator restrictions:
         if ($actor->role === 'moderator') {
             if (in_array($action, ['promote', 'demote', 'make_moderator', 'remove_moderator', 'set_role'])) {
@@ -179,6 +186,87 @@ class AdminController extends Controller
         $targetUser->save();
 
         return response()->json(['message' => "Kullanıcı durumu güncellendi: {$action}", 'user' => $targetUser]);
+    }
+
+    public function updateUser(Request $request, $id)
+    {
+        $actor = $request->user();
+        if (!$actor || $actor->role !== 'admin') {
+            return response()->json(['detail' => 'Bu işlem için admin yetkisi gerekiyor.'], 403);
+        }
+
+        $targetUser = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'role' => 'nullable|string|in:student,moderator,admin,banned',
+            'is_frozen' => 'nullable|boolean',
+            'bee_points' => 'nullable|integer|min:0',
+            'focus_minutes' => 'nullable|integer|min:0',
+            'badges' => 'nullable|array',
+            'badges.*' => 'string',
+            'bio' => 'nullable|string|max:500',
+            'department' => 'nullable|string|max:150',
+            'faculty' => 'nullable|string|max:150',
+        ]);
+
+        // Kırılmaz Kural: ID 1 ve ID 3 dokunulmazlığı
+        if (in_array((int)$targetUser->id, [1, 3])) {
+            if (isset($validated['role']) && $validated['role'] !== 'admin') {
+                return response()->json(['detail' => 'Korumalı admin hesaplarının yönetici rolü değiştirilemez.'], 403);
+            }
+            if (!empty($validated['is_frozen'])) {
+                return response()->json(['detail' => 'Korumalı admin hesapları engellenemez veya dondurulamaz.'], 403);
+            }
+        }
+
+        if (isset($validated['role'])) {
+            $targetUser->role = $validated['role'];
+            if ($validated['role'] === 'banned') {
+                $targetUser->is_frozen = true;
+            } elseif ($validated['role'] === 'student' && !isset($validated['is_frozen'])) {
+                $targetUser->is_frozen = false;
+            }
+        }
+
+        if (isset($validated['is_frozen'])) {
+            $targetUser->is_frozen = (bool)$validated['is_frozen'];
+            if ($targetUser->is_frozen) {
+                $targetUser->role = 'banned';
+            } elseif ($targetUser->role === 'banned') {
+                $targetUser->role = 'student';
+            }
+        }
+
+        if (isset($validated['bee_points'])) {
+            $targetUser->bee_points = (int)$validated['bee_points'];
+        }
+
+        if (isset($validated['focus_minutes'])) {
+            $targetUser->focus_minutes = (int)$validated['focus_minutes'];
+        }
+
+        if (isset($validated['badges'])) {
+            $targetUser->badges = array_values(array_unique($validated['badges']));
+        }
+
+        if (isset($validated['bio'])) {
+            $targetUser->bio = $validated['bio'];
+        }
+
+        if (isset($validated['department'])) {
+            $targetUser->department = $validated['department'];
+        }
+
+        if (isset($validated['faculty'])) {
+            $targetUser->faculty = $validated['faculty'];
+        }
+
+        $targetUser->save();
+
+        return response()->json([
+            'message' => 'Kullanıcı özellikleri ve yetkileri başarıyla güncellendi.',
+            'user' => $targetUser,
+        ]);
     }
 
     public function managePrice(Request $request, $zoneId, $priceId)

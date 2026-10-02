@@ -177,6 +177,7 @@ Route::prefix('chat')->middleware('auth:sanctum')->group(function () {
 Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::get('/stats', [AdminController::class, 'stats']);
     Route::get('/users', [AdminController::class, 'users']);
+    Route::put('/users/{id}', [AdminController::class, 'updateUser']);
     Route::get('/pending-prices', [AdminController::class, 'pendingPrices']);
     Route::get('/reports', [AdminController::class, 'reports']);
     Route::post('/reports/{id}/action', [AdminController::class, 'handleReportAction']);
