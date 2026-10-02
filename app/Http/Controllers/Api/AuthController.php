@@ -400,6 +400,33 @@ class AuthController extends Controller
         return response()->json($data);
     }
 
+    private function formatUserPost(Post $p): array
+    {
+        $mediaList = $p->media->map(fn($m) => [
+            'type' => $m->type,
+            'media_type' => $m->type,
+            'url' => $m->url,
+            'file_url' => $m->url,
+            'image_size' => $m->thumbnail ?? 'instagram',
+        ])->values()->toArray();
+
+        return [
+            'id' => (string) $p->id,
+            'content' => $p->content,
+            'image' => !empty($mediaList) ? $mediaList[0]['url'] : null,
+            'image_size' => !empty($mediaList) ? ($mediaList[0]['image_size'] ?? 'instagram') : 'instagram',
+            'media' => $mediaList,
+            'post_type' => $p->post_type ?? 'general',
+            'type' => $p->post_type ?? 'general',
+            'like_count' => $p->likes->count(),
+            'comment_count' => $p->comments->count(),
+            'view_count' => $p->view_count,
+            'visibility' => $p->visibility ?? 'public',
+            'is_friends_only' => ($p->visibility ?? 'public') === 'friends',
+            'created_at' => $p->created_at->toISOString(),
+        ];
+    }
+
     public function getUserPosts($userId, Request $request)
     {
         $skip = (int) $request->get('skip', 0);
@@ -433,20 +460,7 @@ class AuthController extends Controller
             ->take($limit)
             ->get();
 
-        return response()->json($posts->map(function ($p) {
-            return [
-                'id' => (string) $p->id,
-                'content' => $p->content,
-                'image' => $p->media->first()?->url,
-                'media' => $p->media->map(fn($m) => ['type' => $m->type, 'url' => $m->url]),
-                'like_count' => $p->likes->count(),
-                'comment_count' => $p->comments->count(),
-                'view_count' => $p->view_count,
-                'visibility' => $p->visibility ?? 'public',
-                'is_friends_only' => ($p->visibility ?? 'public') === 'friends',
-                'created_at' => $p->created_at->toISOString(),
-            ];
-        }));
+        return response()->json($posts->map(fn($p) => $this->formatUserPost($p))->values());
     }
 
     public function getUserArchivedPosts($userId, Request $request)
@@ -467,18 +481,7 @@ class AuthController extends Controller
             ->take($limit)
             ->get();
 
-        return response()->json($posts->map(function ($p) {
-            return [
-                'id' => (string) $p->id,
-                'content' => $p->content,
-                'image' => $p->media->first()?->url,
-                'media' => $p->media->map(fn($m) => ['type' => $m->type, 'url' => $m->url]),
-                'like_count' => $p->likes->count(),
-                'comment_count' => $p->comments->count(),
-                'view_count' => $p->view_count,
-                'created_at' => $p->created_at->toISOString(),
-            ];
-        }));
+        return response()->json($posts->map(fn($p) => $this->formatUserPost($p))->values());
     }
 
     public function getUserLikedPosts($userId, Request $request)
@@ -500,18 +503,7 @@ class AuthController extends Controller
             ->take($limit)
             ->get();
 
-        return response()->json($posts->map(function ($p) {
-            return [
-                'id' => (string) $p->id,
-                'content' => $p->content,
-                'image' => $p->media->first()?->url,
-                'media' => $p->media->map(fn($m) => ['type' => $m->type, 'url' => $m->url]),
-                'like_count' => $p->likes->count(),
-                'comment_count' => $p->comments->count(),
-                'view_count' => $p->view_count,
-                'created_at' => $p->created_at->toISOString(),
-            ];
-        }));
+        return response()->json($posts->map(fn($p) => $this->formatUserPost($p))->values());
     }
 
     public function getUserReplies($userId, Request $request)
