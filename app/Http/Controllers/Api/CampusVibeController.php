@@ -44,6 +44,7 @@ class CampusVibeController extends Controller
         $violation = \App\Services\ContentModerationService::inspectAndLog($validated['content'], null, $user, 'vibe');
         if ($violation && $violation['blocked']) {
             return response()->json([
+                'message' => $violation['message'],
                 'detail' => $violation['message'],
                 'reason' => $violation['reason'],
             ], 422);

@@ -13,9 +13,9 @@ class ContentModerationService
      * Kapsamlı Cinsel & Müstehcen Kelime ve Kalıp Listesi (Türkçe & İngilizce)
      */
     protected static array $sexualTerms = [
-        // Müstehcen Anatomi & Küfür
+        // Müstehcen Anatomi & Ağır Cinsel Küfür
         'amcık', 'amcik', 'yarrak', 'yarak', 'sik', 'sikiş', 'sikis', 'sikişme', 'sikismek', 'sikeyim', 'siktiğim',
-        'orospu', 'kaltak', 'kahpe', 'piç', 'götlek', 'amk', 'aq', 'amq', 'oç', 'göt deliği', 'got deligi',
+        'orospu', 'kaltak', 'kahpe', 'götlek', 'göt deliği', 'got deligi',
         'vajina', 'penis', 'klitoris', 'testis', 'daşşak', 'dassak', 'taşşak',
 
         // Cinsel Eylemler & Müstehcen İfadeler
@@ -32,6 +32,14 @@ class ContentModerationService
         // İngilizce Cinsel Terimler
         'pussy', 'dick', 'cock', 'boobs', 'tits', 'slut', 'whore', 'bitch', 'fuck', 'fucking',
         'deepthroat', 'cumshot', 'gangbang', 'horny', 'erotic', 'erotik'
+    ];
+
+    /**
+     * Sadece bağımsız tekil kelime sınırıyla eşleşmesi gereken terimler (Asla Türkçe kelimelerin içinde aranmaz)
+     * Örn: 'anal' (analiz, kanal olamaz), 'oral' (moral, oralarda olamaz), 'seks' (yüksek ses olamaz), 'esc' (escape olamaz)
+     */
+    protected static array $strictWholeWordOnly = [
+        'anal', 'oral', 'seks', 'sex', 'esc', 'nude', 'nsfw', 'fetiş', 'fetis', 'bdsm', 'döl', 'sperm', 'sik', 'am'
     ];
 
     /**
@@ -76,16 +84,17 @@ class ContentModerationService
 
         foreach (self::$sexualTerms as $term) {
             $termNorm = mb_strtolower($term, 'UTF-8');
+            $isStrict = in_array($termNorm, self::$strictWholeWordOnly, true);
 
-            // 1. Doğrudan kelime sınırlarıyla arama
+            // 1. Doğrudan kelime sınırlarıyla arama (tüm terimler için)
             $escaped = preg_quote($termNorm, '/');
-            if (preg_match('/(?:\b|^)' . $escaped . '(?:\b|$)/u', $norm)) {
+            if (preg_match('/(?:^|[^a-z0-9ğüşıöç])' . $escaped . '(?:[^a-z0-9ğüşıöç]|$)/iu', $norm)) {
                 $matched[] = $term;
                 continue;
             }
 
-            // 2. Birleştirilmiş (condensed) metinde arama (uzunluğu >= 4 olan terimler için)
-            if (mb_strlen($termNorm) >= 4 && str_contains($condensed, $termNorm)) {
+            // 2. Birleştirilmiş (condensed) metinde arama (SADECE strict OLMAYAN ve uzunluğu >= 5 olan terimler için)
+            if (!$isStrict && mb_strlen($termNorm) >= 5 && str_contains($condensed, $termNorm)) {
                 $matched[] = $term;
             }
         }
