@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="petekGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDB913"/>
+      <stop offset="100%" stop-color="#E09B00"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="24" fill="#121316"/>
+  <!-- Central Honeycomb Hexagon -->
+  <polygon points="50,22 76,37 76,67 50,82 24,67 24,37" fill="none" stroke="url(#petekGold)" stroke-width="6" stroke-linejoin="round"/>
+  <!-- Inner Hexagon -->
+  <polygon points="50,34 66,43 66,61 50,70 34,61 34,43" fill="url(#petekGold)" opacity="0.85"/>
+  <circle cx="50" cy="52" r="5" fill="#121316"/>
+</svg>
