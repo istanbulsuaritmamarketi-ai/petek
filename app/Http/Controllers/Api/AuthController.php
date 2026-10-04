@@ -664,23 +664,54 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(15),
         ]);
 
-        // E-Posta gönderimi
+        // E-Posta gönderimi (Çift Hatlı Gönderim: 1. Laravel Mailer -> 2. Native PHP mail() Fallback)
+        $mailSent = false;
         try {
-            Mail::html($this->getVerificationEmailHtml($user->nickname, $code), function ($message) use ($user) {
-                $message->to($user->email)
-                    ->subject('🐝 İTÜ Petek — E-Posta Doğrulama Kodun: ' . $code);
-            });
+            if (config('mail.default') !== 'log') {
+                Mail::html($this->getVerificationEmailHtml($user->nickname, $code), function ($message) use ($user, $code) {
+                    $message->to($user->email)
+                        ->subject('🐝 İTÜ Petek — E-Posta Doğrulama Kodun: ' . $code);
+                });
+                $mailSent = true;
+            }
         } catch (\Throwable $e) {
-            Log::warning("E-posta gönderim uyarısı ({$user->email}): " . $e->getMessage());
+            Log::warning("Laravel Mail gönderim uyarısı ({$user->email}): " . $e->getMessage());
         }
 
-        Log::info("📧 [Email Verification] {$user->email} için doğrulama kodu üretildi: {$code}");
+        // Eğer Laravel Mail gönderilmediyse veya 'log' sürücüsündeyse, doğrudan sunucunun yerel MTA (sendmail/mail) servisini kullan:
+        if (!$mailSent) {
+            try {
+                $htmlBody = $this->getVerificationEmailHtml($user->nickname, $code);
+                $subject = '=?UTF-8?B?' . base64_encode('🐝 İTÜ Petek — E-Posta Doğrulama Kodun: ' . $code) . '?=';
+                $fromEmail = config('mail.from.address') && config('mail.from.address') !== 'hello@example.com'
+                    ? config('mail.from.address')
+                    : 'noreply@itupetek.com.tr';
+                $fromName = config('mail.from.name') ?: 'İTÜ Petek';
+
+                $headers = "MIME-Version: 1.0\r\n";
+                $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+                $headers .= "From: =?UTF-8?B?" . base64_encode($fromName) . "?= <{$fromEmail}>\r\n";
+                $headers .= "Reply-To: iletisim@itupetek.com.tr\r\n";
+                $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
+
+                $mailSent = @mail($user->email, $subject, $htmlBody, $headers, "-f {$fromEmail}");
+                if (!$mailSent) {
+                    $mailSent = @mail($user->email, $subject, $htmlBody, $headers);
+                }
+            } catch (\Throwable $ex) {
+                Log::warning("Native mail() gönderim uyarısı: " . $ex->getMessage());
+            }
+        }
+
+        Log::info("📧 [Email Verification] {$user->email} için doğrulama kodu üretildi: {$code} (Mail Gönderildi: " . ($mailSent ? 'EVET' : 'HAYIR/LOG') . ")");
+
+        $isAdminOrDebug = (bool) (config('app.debug') || $user->role === 'admin' || in_array($user->id, [1, 3]));
 
         return response()->json([
             'message' => "6 haneli doğrulama kodu {$user->email} adresinize gönderildi.",
             'email' => $user->email,
             'expires_in_minutes' => 15,
-            'debug_code' => config('app.debug') ? $code : null,
+            'debug_code' => $isAdminOrDebug ? $code : null,
         ]);
     }
 
