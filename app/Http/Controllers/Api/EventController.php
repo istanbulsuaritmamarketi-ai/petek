@@ -33,21 +33,25 @@ class EventController extends Controller
             }
         }
 
-        $events = $query->orderBy('event_date', 'asc')->get();
+        $events = $query->with('club')->orderBy('event_date', 'asc')->get();
 
         return response()->json($events->map(function ($e) {
+            $club = $e->club;
             return [
                 'id' => (string) $e->id,
                 'title' => $e->title,
                 'description' => $e->description,
                 'date' => $e->event_date ? $e->event_date->toISOString() : now()->toISOString(),
                 'location' => $e->location ?: 'İTÜ Kampüsü',
-                'organizer_club' => $e->organizer_club ?: 'İTÜ Etkinlik',
+                'organizer_club' => $club ? ($club->club_name ?: $club->name) : ($e->organizer_club ?: 'İTÜ Etkinlik'),
                 'image' => $e->image,
                 'link' => $e->link ?: 'https://etkinlik.itu.edu.tr/',
                 'fee' => $e->fee ?: 'Ücretsiz',
                 'is_club_event' => (bool) $e->is_club_event,
                 'club_id' => $e->club_id ? (string) $e->club_id : null,
+                'club_name' => $club ? ($club->club_name ?: $club->name) : null,
+                'club_nickname' => $club?->nickname,
+                'club_avatar' => $club?->avatar,
                 'created_at' => $e->created_at ? $e->created_at->toISOString() : now()->toISOString(),
             ];
         }));
@@ -57,10 +61,14 @@ class EventController extends Controller
     {
         $user = $request->user();
 
-        // RBAC: Club account, club_manager, or admin can create events
+        // RBAC: Club account, student who owns a club, club_manager, or admin can create events
         $isClubUser = ($user->account_type === 'club');
-        if (!$isClubUser && !in_array($user->role, ['club_manager', 'admin'])) {
-            return response()->json(['detail' => 'Etkinlik oluşturma yetkiniz yok. Kulüp hesabı veya yönetici olmalısınız.'], 403);
+        $managedClubs = \App\Models\User::where('owner_id', $user->id)->where('account_type', 'club')->get();
+        $isClubOwner = $managedClubs->isNotEmpty();
+        $isAdmin = in_array((int) $user->id, [1, 3]) || $user->role === 'admin';
+
+        if (!$isClubUser && !$isClubOwner && !$isAdmin && $user->role !== 'club_manager') {
+            return response()->json(['detail' => 'Etkinlik oluşturma yetkiniz yok. Kulüp hesabı veya kulüp yöneticisi olmalısınız.'], 403);
         }
 
         $request->validate([
@@ -72,9 +80,29 @@ class EventController extends Controller
             'image' => 'nullable|string',
             'link' => 'nullable|string|max:500',
             'fee' => 'nullable|string|max:50',
+            'club_id' => 'nullable|integer',
         ]);
 
-        $organizer = $request->organizer_club ?: ($isClubUser ? ($user->club_name ?: $user->name) : 'İTÜ Kulübü');
+        $targetClubId = null;
+        if ($isClubUser) {
+            $targetClubId = $user->id;
+            $organizer = $request->organizer_club ?: ($user->club_name ?: $user->name);
+        } elseif ($request->filled('club_id')) {
+            $selectedClub = $managedClubs->firstWhere('id', (int) $request->club_id);
+            if ($selectedClub || $isAdmin) {
+                $targetClubId = (int) $request->club_id;
+                $targetClubUser = $selectedClub ?: \App\Models\User::find($targetClubId);
+                $organizer = $request->organizer_club ?: ($targetClubUser?->club_name ?: $targetClubUser?->name ?: 'İTÜ Kulübü');
+            } else {
+                $organizer = $request->organizer_club ?: 'İTÜ Kulübü';
+            }
+        } elseif ($isClubOwner) {
+            $firstClub = $managedClubs->first();
+            $targetClubId = $firstClub->id;
+            $organizer = $request->organizer_club ?: ($firstClub->club_name ?: $firstClub->name);
+        } else {
+            $organizer = $request->organizer_club ?: 'İTÜ Kulübü';
+        }
 
         $event = Event::create([
             'user_id' => $user->id,
@@ -86,8 +114,8 @@ class EventController extends Controller
             'image' => $request->image,
             'link' => $request->link ?: 'https://etkinlik.itu.edu.tr/',
             'fee' => $request->fee ?: 'Ücretsiz',
-            'is_club_event' => $isClubUser || $request->boolean('is_club_event', true),
-            'club_id' => $isClubUser ? $user->id : null,
+            'is_club_event' => true,
+            'club_id' => $targetClubId,
         ]);
 
         return response()->json([
