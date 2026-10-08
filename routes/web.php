@@ -15,6 +15,12 @@ Route::get('/terms', function () {
 Route::get('/kullanim-kosullari', function () {
     return response()->file(public_path('terms.html'));
 });
+Route::get('/child-safety', function () {
+    return response()->file(public_path('child-safety.html'));
+});
+Route::get('/cocuk-guvenligi', function () {
+    return response()->file(public_path('child-safety.html'));
+});
 
 // SPA (Single Page Application) - Serves the complete React Native / Expo Web App
 Route::get('/{any?}', function ($any = null) {

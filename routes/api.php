@@ -59,7 +59,7 @@ Route::prefix('users')->group(function () {
     Route::get('/{id}/followers', [AuthController::class, 'getFollowers']);
     Route::get('/{id}/following', [AuthController::class, 'getFollowing']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'verified.email'])->group(function () {
         Route::get('/{id}/archived-posts', [AuthController::class, 'getUserArchivedPosts']);
         Route::get('/{id}/liked-posts', [AuthController::class, 'getUserLikedPosts']);
         Route::get('/{id}/replies', [AuthController::class, 'getUserReplies']);
@@ -82,7 +82,7 @@ Route::prefix('posts')->group(function () {
     Route::get('/{id}/comments', [PostController::class, 'getComments']);
     Route::get('/{id}/likes', [PostController::class, 'getPostLikers']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'verified.email'])->group(function () {
         Route::post('/', [PostController::class, 'store']);
         Route::delete('/{id}', [PostController::class, 'destroy']);
         Route::post('/{id}/like', [PostController::class, 'toggleLike']);
@@ -167,14 +167,14 @@ Route::prefix('focus')->group(function () {
 // --- KAMPUS VIBE ---
 Route::prefix('vibes')->group(function () {
     Route::get('/', [CampusVibeController::class, 'index']);
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'verified.email'])->group(function () {
         Route::post('/', [CampusVibeController::class, 'store']);
         Route::delete('/{id}', [CampusVibeController::class, 'destroy']);
     });
 });
 
 // --- CHAT & DM ---
-Route::prefix('chat')->middleware('auth:sanctum')->group(function () {
+Route::prefix('chat')->middleware(['auth:sanctum', 'verified.email'])->group(function () {
     Route::get('/conversations', [ChatController::class, 'conversations']);
     Route::post('/conversations/{userId}', [ChatController::class, 'getOrCreateConversation']);
     Route::get('/conversations/{conversationId}/messages', [ChatController::class, 'messages']);

@@ -75,6 +75,8 @@ class AuthController extends Controller
 
     private function formatUser(User $user): array
     {
+        $isAdmin = $user->role === 'admin' || in_array((int) $user->id, [1, 3]);
+
         return [
             'id' => (string) $user->id,
             'name' => $user->name ?? $user->nickname,
@@ -94,8 +96,8 @@ class AuthController extends Controller
             'follower_count' => $user->followers()->count(),
             'following_count' => $user->following()->count(),
             'share_campus_status' => (bool) ($user->share_campus_status ?? true),
-            'is_email_verified' => !is_null($user->email_verified_at),
-            'email_verified_at' => $user->email_verified_at?->toISOString(),
+            'is_email_verified' => $isAdmin || !is_null($user->email_verified_at),
+            'email_verified_at' => $user->email_verified_at?->toISOString() ?? ($isAdmin ? now()->toISOString() : null),
             'is_on_campus' => $user->isOnCampus(),
             'campus_status' => $user->getCampusStatus(),
             'created_at' => $user->created_at->toISOString(),
@@ -129,10 +131,16 @@ class AuthController extends Controller
 
         $token = $user->createToken('petek_mobile_token')->plainTextToken;
 
+        // Otomatik 6 haneli doğrulama PIN kodunu üret ve e-postaya gönder
+        $dispatchResult = $this->dispatchVerificationCode($user);
+
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'user' => $this->formatUser($user),
+            'requires_verification' => true,
+            'message' => 'Kayıt başarılı! 6 haneli doğrulama kodu ' . $user->email . ' adresinize gönderildi.',
+            'debug_code' => $dispatchResult['debug_code'] ?? null,
         ], 201);
     }
 
@@ -166,11 +174,27 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('petek_mobile_token')->plainTextToken;
+        $isAdmin = $user->role === 'admin' || in_array((int) $user->id, [1, 3]);
+        $isVerified = $isAdmin || !is_null($user->email_verified_at);
+
+        // Eğer kullanıcı henüz doğrulanmamışsa ve aktif kodu yoksa otomatik yeni kod gönder
+        $debugCode = null;
+        if (!$isVerified) {
+            $hasActiveCode = EmailVerificationCode::where('email', $user->email)
+                ->where('expires_at', '>', now())
+                ->exists();
+            if (!$hasActiveCode) {
+                $dispatch = $this->dispatchVerificationCode($user);
+                $debugCode = $dispatch['debug_code'] ?? null;
+            }
+        }
 
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'user' => $this->formatUser($user),
+            'requires_verification' => !$isVerified,
+            'debug_code' => $debugCode,
         ]);
     }
 
@@ -634,24 +658,18 @@ class AuthController extends Controller
         ]));
     }
 
-    public function sendVerificationCode(Request $request)
+    public function dispatchVerificationCode(User $user): array
     {
-        $user = $request->user();
-        if ($user->email_verified_at) {
-            return response()->json([
-                'message' => 'E-posta adresiniz zaten doğrulanmıştır.',
-                'is_verified' => true,
-            ]);
-        }
-
-        // Dakikada en fazla 2 kod talebi sınırı
+        // Dakikada en fazla 3 kod talebi sınırı
         $recentCount = EmailVerificationCode::where('email', $user->email)
             ->where('created_at', '>', now()->subMinutes(2))
             ->count();
-        if ($recentCount >= 2) {
-            return response()->json([
+        if ($recentCount >= 3) {
+            return [
+                'success' => false,
                 'detail' => 'Lütfen yeni bir kod istemeden önce 2 dakika bekleyin.',
-            ], 429);
+                'status_code' => 429,
+            ];
         }
 
         $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
@@ -705,13 +723,41 @@ class AuthController extends Controller
 
         Log::info("📧 [Email Verification] {$user->email} için doğrulama kodu üretildi: {$code} (Mail Gönderildi: " . ($mailSent ? 'EVET' : 'HAYIR/LOG') . ")");
 
-        $isAdminOrDebug = (bool) (config('app.debug') || $user->role === 'admin' || in_array($user->id, [1, 3]));
+        $isAdminOrDebug = (bool) (config('app.debug') || $user->role === 'admin' || in_array((int) $user->id, [1, 3]));
 
-        return response()->json([
+        return [
+            'success' => true,
             'message' => "6 haneli doğrulama kodu {$user->email} adresinize gönderildi.",
             'email' => $user->email,
             'expires_in_minutes' => 15,
+            'mail_sent' => $mailSent,
             'debug_code' => $isAdminOrDebug ? $code : null,
+            'status_code' => 200,
+        ];
+    }
+
+    public function sendVerificationCode(Request $request)
+    {
+        $user = $request->user();
+        if ($user->email_verified_at) {
+            return response()->json([
+                'message' => 'E-posta adresiniz zaten doğrulanmıştır.',
+                'is_verified' => true,
+            ]);
+        }
+
+        $result = $this->dispatchVerificationCode($user);
+        if (!$result['success']) {
+            return response()->json([
+                'detail' => $result['detail'],
+            ], $result['status_code']);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'email' => $result['email'],
+            'expires_in_minutes' => $result['expires_in_minutes'],
+            'debug_code' => $result['debug_code'],
         ]);
     }
 
