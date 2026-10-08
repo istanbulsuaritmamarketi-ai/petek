@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\DealController;
 use App\Http\Controllers\Api\QuickLinkController;
 use App\Http\Controllers\Api\DiningController;
 use App\Http\Controllers\Api\LibraryController;
+use App\Http\Controllers\Api\ClubController;
 
 // --- STATS ROUTES ---
 Route::get('/stats/countdown', [StatsController::class, 'countdown']);
@@ -149,6 +150,24 @@ Route::prefix('events')->group(function () {
         Route::delete('/{id}', [EventController::class, 'destroy']);
         Route::post('/crawl-itu', [EventController::class, 'crawlItuEvents']);
     });
+});
+
+// --- CLUBS & MULTI-ACCOUNT MANAGEMENT ---
+Route::prefix('clubs')->group(function () {
+    Route::get('/', [ClubController::class, 'listClubs']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/', [ClubController::class, 'create']);
+        Route::get('/my-managed', [ClubController::class, 'getMyManagedClubs']);
+        Route::post('/switch/{id}', [ClubController::class, 'switchAccount']);
+        Route::post('/transfer/{id}', [ClubController::class, 'transferOwnership']);
+        Route::put('/settings/{id}', [ClubController::class, 'updateClubSettings']);
+    });
+});
+
+// --- STUDENT COURSE SCHEDULE (WIDGET TIMETABLE) ---
+Route::prefix('user/schedule')->middleware('auth:sanctum')->group(function () {
+    Route::get('/', [ClubController::class, 'getSchedule']);
+    Route::post('/', [ClubController::class, 'saveSchedule']);
 });
 
 // --- FOCUS SESSIONS & LEADERBOARD ---

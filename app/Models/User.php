@@ -32,6 +32,9 @@ class User extends Authenticatable
         'location_updated_at',
         'club_name',
         'club_description',
+        'club_category',
+        'owner_id',
+        'course_schedule',
         'dismissed_notifications',
         'share_campus_status',
     ];
@@ -50,11 +53,23 @@ class User extends Authenticatable
             'share_campus_status' => 'boolean',
             'badges' => 'array',
             'dismissed_notifications' => 'array',
+            'course_schedule' => 'array',
             'location_updated_at' => 'datetime',
             'bee_points' => 'integer',
             'post_count' => 'integer',
             'focus_minutes' => 'integer',
+            'owner_id' => 'integer',
         ];
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function managedClubs()
+    {
+        return $this->hasMany(User::class, 'owner_id');
     }
 
     public function posts()

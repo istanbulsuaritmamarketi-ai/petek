@@ -1000,13 +1000,8 @@ class AdminController extends Controller
             $msg = "{$targetUser->nickname} kullanıcısının e-posta doğrulaması kaldırıldı.";
         } else {
             $targetUser->email_verified_at = now();
-            $badges = is_array($targetUser->badges) ? $targetUser->badges : [];
-            if (!in_array('onayli_ari', $badges)) {
-                $badges[] = 'onayli_ari';
-                $targetUser->badges = $badges;
-            }
             $targetUser->save();
-            $msg = "{$targetUser->nickname} kullanıcısı doğrulandı ve İTÜ Onaylı Arı rozeti tanımlandı.";
+            $msg = "{$targetUser->nickname} kullanıcısının e-postası doğrulandı.";
         }
 
         return response()->json([

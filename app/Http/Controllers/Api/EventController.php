@@ -8,20 +8,47 @@ use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $events = Event::orderBy('event_date', 'asc')->get();
+        $query = Event::query();
+
+        if ($request->filled('q')) {
+            $search = trim($request->q);
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('organizer_club', 'like', "%{$search}%")
+                  ->orWhere('location', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('filter')) {
+            $filter = $request->filter;
+            if ($filter === 'club') {
+                $query->where('is_club_event', true);
+            } elseif ($filter === 'itu') {
+                $query->where(function ($q) {
+                    $q->where('is_club_event', false)->orWhereNull('is_club_event');
+                });
+            }
+        }
+
+        $events = $query->orderBy('event_date', 'asc')->get();
 
         return response()->json($events->map(function ($e) {
             return [
                 'id' => (string) $e->id,
                 'title' => $e->title,
                 'description' => $e->description,
-                'date' => $e->event_date->toISOString(),
-                'location' => $e->location,
-                'organizer_club' => $e->organizer_club,
+                'date' => $e->event_date ? $e->event_date->toISOString() : now()->toISOString(),
+                'location' => $e->location ?: 'İTÜ Kampüsü',
+                'organizer_club' => $e->organizer_club ?: 'İTÜ Etkinlik',
                 'image' => $e->image,
-                'created_at' => $e->created_at->toISOString(),
+                'link' => $e->link ?: 'https://etkinlik.itu.edu.tr/',
+                'fee' => $e->fee ?: 'Ücretsiz',
+                'is_club_event' => (bool) $e->is_club_event,
+                'club_id' => $e->club_id ? (string) $e->club_id : null,
+                'created_at' => $e->created_at ? $e->created_at->toISOString() : now()->toISOString(),
             ];
         }));
     }
@@ -30,19 +57,24 @@ class EventController extends Controller
     {
         $user = $request->user();
 
-        // RBAC: Only club_manager and admin can create events
-        if (!in_array($user->role, ['club_manager', 'admin'])) {
-            return response()->json(['detail' => 'Etkinlik oluşturma yetkiniz yok'], 403);
+        // RBAC: Club account, club_manager, or admin can create events
+        $isClubUser = ($user->account_type === 'club');
+        if (!$isClubUser && !in_array($user->role, ['club_manager', 'admin'])) {
+            return response()->json(['detail' => 'Etkinlik oluşturma yetkiniz yok. Kulüp hesabı veya yönetici olmalısınız.'], 403);
         }
 
         $request->validate([
-            'title' => 'required|string',
+            'title' => 'required|string|max:200',
             'description' => 'required|string',
             'date' => 'required|date',
-            'location' => 'required|string',
-            'organizer_club' => 'required|string',
+            'location' => 'required|string|max:150',
+            'organizer_club' => 'nullable|string|max:100',
             'image' => 'nullable|string',
+            'link' => 'nullable|string|max:500',
+            'fee' => 'nullable|string|max:50',
         ]);
+
+        $organizer = $request->organizer_club ?: ($isClubUser ? ($user->club_name ?: $user->name) : 'İTÜ Kulübü');
 
         $event = Event::create([
             'user_id' => $user->id,
@@ -50,11 +82,28 @@ class EventController extends Controller
             'description' => $request->description,
             'event_date' => $request->date,
             'location' => $request->location,
-            'organizer_club' => $request->organizer_club,
+            'organizer_club' => $organizer,
             'image' => $request->image,
+            'link' => $request->link ?: 'https://etkinlik.itu.edu.tr/',
+            'fee' => $request->fee ?: 'Ücretsiz',
+            'is_club_event' => $isClubUser || $request->boolean('is_club_event', true),
+            'club_id' => $isClubUser ? $user->id : null,
         ]);
 
-        return response()->json($event, 201);
+        return response()->json([
+            'id' => (string) $event->id,
+            'title' => $event->title,
+            'description' => $event->description,
+            'date' => $event->event_date ? $event->event_date->toISOString() : now()->toISOString(),
+            'location' => $event->location,
+            'organizer_club' => $event->organizer_club,
+            'image' => $event->image,
+            'link' => $event->link,
+            'fee' => $event->fee,
+            'is_club_event' => (bool) $event->is_club_event,
+            'club_id' => $event->club_id ? (string) $event->club_id : null,
+            'created_at' => $event->created_at ? $event->created_at->toISOString() : now()->toISOString(),
+        ], 201);
     }
 
     public function destroy($id, Request $request)
@@ -132,10 +181,42 @@ class EventController extends Controller
                     }
                 }
 
-                // Description
+                // Link
+                $link = 'https://etkinlik.itu.edu.tr/';
+                if (preg_match('/<a[^>]*href=["\']([^"\']*)["\'][^>]*>/is', $itemHtml, $lm)) {
+                    $rawHref = trim($lm[1]);
+                    if ($rawHref) {
+                        $link = str_starts_with($rawHref, 'http') ? $rawHref : ('https://etkinlik.itu.edu.tr/' . ltrim($rawHref, '/'));
+                    }
+                }
+
+                // Fee / Ücret
+                $fee = 'Ücretsiz';
+                if (preg_match('/<strong>.*?<\/strong>\s*\|\s*([^<]+)/is', $itemHtml, $feem)) {
+                    $fee = trim($feem[1]);
+                }
+
+                // Description (Detailed)
                 $desc = $title;
                 if (preg_match('/<p>(.*?)<\/p>/is', $itemHtml, $dm)) {
                     $desc = trim(strip_tags($dm[1]));
+                }
+
+                // Fetch full description from detail page if available
+                if (str_contains($link, 'EtkinlikDetay.aspx')) {
+                    $detailCh = curl_init($link);
+                    curl_setopt($detailCh, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($detailCh, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($detailCh, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PetekITU/1.0');
+                    curl_setopt($detailCh, CURLOPT_TIMEOUT, 4);
+                    $detailHtml = curl_exec($detailCh);
+                    curl_close($detailCh);
+                    if ($detailHtml && preg_match('/<span[^>]*id=["\'][^"\']*lblAciklama[^"\']*["\'][^>]*>(.*?)<\/span>/is', $detailHtml, $aciklamaM)) {
+                        $fullDesc = trim(html_entity_decode(strip_tags($aciklamaM[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                        if (!empty($fullDesc)) {
+                            $desc = $fullDesc;
+                        }
+                    }
                 }
 
                 // Category / Club
@@ -153,6 +234,8 @@ class EventController extends Controller
                         'location' => $location,
                         'organizer_club' => $organizer ?: 'İTÜ',
                         'image' => $img,
+                        'link' => $link,
+                        'fee' => $fee,
                     ]
                 );
                 $addedCount++;

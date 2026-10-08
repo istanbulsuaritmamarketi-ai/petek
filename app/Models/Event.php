@@ -17,11 +17,21 @@ class Event extends Model
         'location',
         'organizer_club',
         'image',
+        'link',
+        'fee',
+        'is_club_event',
+        'club_id',
     ];
 
     protected $casts = [
         'event_date' => 'datetime',
+        'is_club_event' => 'boolean',
     ];
+
+    public function club()
+    {
+        return $this->belongsTo(User::class, 'club_id');
+    }
 
     public function user()
     {

@@ -96,6 +96,11 @@ class AuthController extends Controller
             'follower_count' => $user->followers()->count(),
             'following_count' => $user->following()->count(),
             'share_campus_status' => (bool) ($user->share_campus_status ?? true),
+            'club_name' => $user->club_name,
+            'club_description' => $user->club_description,
+            'club_category' => $user->club_category,
+            'owner_id' => $user->owner_id ? (string) $user->owner_id : null,
+            'course_schedule' => $user->course_schedule ?: [],
             'is_email_verified' => $isAdmin || !is_null($user->email_verified_at),
             'email_verified_at' => $user->email_verified_at?->toISOString() ?? ($isAdmin ? now()->toISOString() : null),
             'is_on_campus' => $user->isOnCampus(),
@@ -781,25 +786,15 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Kullanıcıyı doğrula
+        // Kullanıcıyı doğrula (Rozet verilmez)
         $user->email_verified_at = now();
-
-        // İTÜ Onaylı Arı rozetini ekle
-        $badges = is_array($user->badges) ? $user->badges : [];
-        if (!in_array('onayli_ari', $badges)) {
-            $badges[] = 'onayli_ari';
-            $user->badges = $badges;
-        }
-
-        // 25 Arı Puanı Ödülü Ver
-        $user->bee_points = ($user->bee_points ?: 0) + 25;
         $user->save();
 
         // Kodu tüket
         $record->delete();
 
         return response()->json([
-            'message' => 'Tebrikler! E-posta adresiniz başarıyla doğrulandı. İTÜ Onaylı Arı rozeti ve +25 Arı Puanı hesabınıza yüklendi! 🐝',
+            'message' => 'Tebrikler! E-posta adresiniz başarıyla doğrulandı. 🐝',
             'user' => $this->formatUser($user),
         ]);
     }
