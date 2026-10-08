@@ -898,7 +898,6 @@ class AdminController extends Controller
     public function getCustomBadges()
     {
         $defaultBadges = [
-            ['key' => 'onayli_ari', 'label' => 'İTÜ Onaylı Arı', 'icon' => 'checkmark-circle', 'color' => '#10B981'],
             ['key' => 'kovan_lideri', 'label' => 'Kovan Lideri', 'icon' => 'trophy', 'color' => '#F59E0B'],
             ['key' => 'topluluk_elcisi', 'label' => 'Topluluk Elçisi', 'icon' => 'megaphone', 'color' => '#8B5CF6'],
             ['key' => 'super_odak', 'label' => 'Süper Odak', 'icon' => 'flame', 'color' => '#EF4444'],
