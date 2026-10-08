@@ -111,6 +111,7 @@ Route::get('/settings/branding', [AdminController::class, 'getBrandingSettings']
 Route::get('/settings/badges', [AdminController::class, 'getCustomBadges']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [AdminController::class, 'getNotifications']);
+    Route::post('/notifications/read', [AdminController::class, 'markAsRead']);
     Route::delete('/notifications/{id}', [AdminController::class, 'deleteNotification']);
     Route::delete('/notifications', [AdminController::class, 'clearAllNotifications']);
 });

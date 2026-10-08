@@ -171,8 +171,12 @@ class DiningController extends Controller
             })
             ->values();
 
-        $ratingCount = $ratingsList->count() > 0 ? $ratingsList->count() : (int) $menu->rating_count;
-        $averageRating = $ratingsList->count() > 0 ? round($ratingsList->avg('score'), 1) : (float) $menu->average_rating;
+        $ratingCount = (int) $menu->rating_count;
+        $averageRating = $ratingCount > 0 ? (float) $menu->average_rating : 0.0;
+        if ($ratingCount === 0 && $ratingsList->count() > 0) {
+            $ratingCount = $ratingsList->count();
+            $averageRating = round((float) $ratingsList->avg('score'), 1);
+        }
 
         return [
             'id' => (string) $menu->id,
@@ -214,10 +218,10 @@ class DiningController extends Controller
                         'items' => $crawledLunch['items'],
                         'calories' => $crawledLunch['calories'],
                         'vegetarian_items' => $crawledLunch['vegetarian_items'],
-                        'average_rating' => $lunch?->average_rating ?? 4.4,
-                        'rating_count' => $lunch?->rating_count ?? 12,
-                        'rating_sum' => $lunch?->rating_sum ?? 53,
-                        'notification_sent' => $lunch?->notification_sent ?? true,
+                        'average_rating' => $lunch?->average_rating ?? 0.0,
+                        'rating_count' => $lunch?->rating_count ?? 0,
+                        'rating_sum' => $lunch?->rating_sum ?? 0,
+                        'notification_sent' => $lunch?->notification_sent ?? false,
                     ]
                 );
             }
@@ -233,9 +237,9 @@ class DiningController extends Controller
                         'items' => $crawledDinner['items'],
                         'calories' => $crawledDinner['calories'],
                         'vegetarian_items' => $crawledDinner['vegetarian_items'],
-                        'average_rating' => $dinner?->average_rating ?? 4.3,
-                        'rating_count' => $dinner?->rating_count ?? 8,
-                        'rating_sum' => $dinner?->rating_sum ?? 34,
+                        'average_rating' => $dinner?->average_rating ?? 0.0,
+                        'rating_count' => $dinner?->rating_count ?? 0,
+                        'rating_sum' => $dinner?->rating_sum ?? 0,
                         'notification_sent' => $dinner?->notification_sent ?? false,
                     ]
                 );
@@ -251,10 +255,10 @@ class DiningController extends Controller
                 'items' => ['Ezogelin Çorbası', 'Orman Kebabı', 'Şehriyeli Pirinç Pilavı', 'Mevsim Salata'],
                 'calories' => '860 kcal',
                 'vegetarian_items' => ['Ezogelin Çorbası', 'Sebzeli Güveç', 'Şehriyeli Pirinç Pilavı', 'Mevsim Salata'],
-                'rating_sum' => 44,
-                'rating_count' => 10,
-                'average_rating' => 4.4,
-                'notification_sent' => true,
+                'rating_sum' => 0,
+                'rating_count' => 0,
+                'average_rating' => 0.0,
+                'notification_sent' => false,
             ]);
         }
 
@@ -266,9 +270,9 @@ class DiningController extends Controller
                 'items' => ['Mercimek Çorbası', 'Fırın Tavuk But', 'Fırın Makarna', 'Fırın Sütlaç'],
                 'calories' => '820 kcal',
                 'vegetarian_items' => ['Mercimek Çorbası', 'Taze Fasulye', 'Fırın Makarna', 'Fırın Sütlaç'],
-                'rating_sum' => 26,
-                'rating_count' => 6,
-                'average_rating' => 4.3,
+                'rating_sum' => 0,
+                'rating_count' => 0,
+                'average_rating' => 0.0,
                 'notification_sent' => false,
             ]);
         }
@@ -320,11 +324,6 @@ class DiningController extends Controller
         $menu->rating_count = $count;
         $menu->rating_sum = $sum;
         $menu->average_rating = $avg;
-
-        // Auto trigger notification if rating is >= 4.0 and at least 3 people voted
-        if ($avg >= 4.0 && $count >= 3 && !$menu->notification_sent) {
-            $menu->notification_sent = true;
-        }
 
         $menu->save();
 

@@ -498,17 +498,23 @@ class AdminController extends Controller
             ];
         }
 
-        // Dining (Yemekhane) Rate Notifications & Praised Menu Broadcasts
+        // Dining (Yemekhane) Rate Notifications (Only when broadcasted by admin today and not already rated)
         $todayMenus = \App\Models\DiningMenu::whereDate('date', now()->toDateString())->get();
 
-        foreach ($todayMenus as $dMenu) {
-            $mainItem = $dMenu->items[1] ?? ($dMenu->items[0] ?? 'Günün Yemeği');
-            $mealLabel = $dMenu->meal_type === 'dinner' ? 'akşam' : 'öğle';
+        $userRatedMenuIds = \App\Models\DiningRating::where('user_id', $user->id)
+            ->whereIn('dining_menu_id', $todayMenus->pluck('id'))
+            ->pluck('dining_menu_id')
+            ->toArray();
 
-            // 1. Admin Broadcast: "Menüyü Puanla" notification sent by admin at any hour
-            if ($dMenu->notification_sent) {
+        foreach ($todayMenus as $dMenu) {
+            $notifTime = $dMenu->last_notified_at;
+            $isNotifiedToday = $notifTime && \Carbon\Carbon::parse($notifTime)->isToday();
+
+            // Only notify if admin sent broadcast today and user hasn't rated yet
+            if ($dMenu->notification_sent && $isNotifiedToday && !in_array($dMenu->id, $userRatedMenuIds)) {
+                $mainItem = $dMenu->items[1] ?? ($dMenu->items[0] ?? 'Günün Yemeği');
+                $mealLabel = $dMenu->meal_type === 'dinner' ? 'akşam' : 'öğle';
                 $notifCount = $dMenu->notification_count ?: 1;
-                $notifTime = $dMenu->last_notified_at ?: $dMenu->updated_at;
                 $notifications[] = [
                     'id' => 'dining-rate-' . $dMenu->id . '-v' . $notifCount,
                     'type' => 'dining',
@@ -517,21 +523,7 @@ class AdminController extends Controller
                     'title' => $dMenu->notification_title ?: ("Günün " . ($dMenu->meal_type === 'dinner' ? 'Akşam' : 'Öğle') . " Menüsünü Puanla! 🍽️"),
                     'body' => $dMenu->notification_body ?: "Bugünkü {$mealLabel} menüsünü ({$mainItem}) denedin mi? Yemekhaneyi puanla, arı kovanına fikir ver! ⭐",
                     'is_read' => false,
-                    'created_at' => $notifTime ? $notifTime->toISOString() : now()->toISOString(),
-                ];
-            }
-
-            // 2. High rating praise (if 3+ votes and >= 4.0 average)
-            if ($dMenu->rating_count >= 3 && $dMenu->average_rating >= 4.0) {
-                $notifications[] = [
-                    'id' => 'dining-praise-' . $dMenu->id,
-                    'type' => 'dining',
-                    'dining_id' => (string) $dMenu->id,
-                    'meal_type' => $dMenu->meal_type,
-                    'title' => 'Yemekhanede Ziyafet Var! ⭐ ' . number_format($dMenu->average_rating, 1),
-                    'body' => "Bugün {$mealLabel} menüsü öğrenciler tarafından çok beğenildi ({$mainItem}). Kaçırma! 🍽️",
-                    'is_read' => false,
-                    'created_at' => $dMenu->updated_at ? $dMenu->updated_at->toISOString() : now()->toISOString(),
+                    'created_at' => \Carbon\Carbon::parse($notifTime)->toISOString(),
                 ];
             }
         }
@@ -563,6 +555,15 @@ class AdminController extends Controller
             'is_read' => true,
             'created_at' => $user->created_at ? $user->created_at->toISOString() : now()->toISOString(),
         ];
+
+        // Apply persistent read status
+        $readIds = $this->getUserReadNotifications($user);
+        foreach ($notifications as &$notif) {
+            if (in_array((string)$notif['id'], $readIds)) {
+                $notif['is_read'] = true;
+            }
+        }
+        unset($notif);
 
         usort($notifications, fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
         return $notifications;
@@ -605,6 +606,41 @@ class AdminController extends Controller
         $this->saveUserDismissedNotifications($user, $merged);
 
         return response()->json(['message' => 'Tüm bildirimler başarıyla silindi.']);
+    }
+
+    public function markAsRead(Request $request)
+    {
+        $user = $request->user();
+        $readIds = $this->getUserReadNotifications($user);
+
+        if ($request->boolean('all')) {
+            $raw = $this->generateRawNotifications($user);
+            $allIds = array_map(fn($n) => (string)$n['id'], $raw);
+            $readIds = array_values(array_unique(array_merge($readIds, $allIds)));
+        } elseif ($request->filled('id')) {
+            $readIds[] = (string) $request->input('id');
+            $readIds = array_values(array_unique($readIds));
+        }
+
+        $this->saveUserReadNotifications($user, $readIds);
+
+        return response()->json([
+            'message' => 'Bildirimler okundu olarak işaretlendi.',
+            'read_ids' => $readIds,
+        ]);
+    }
+
+    private function getUserReadNotifications($user): array
+    {
+        $cacheKey = "user_read_notifs_{$user->id}";
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey, []);
+        return is_array($cached) ? array_map('strval', $cached) : [];
+    }
+
+    private function saveUserReadNotifications($user, array $readIds): void
+    {
+        $cacheKey = "user_read_notifs_{$user->id}";
+        \Illuminate\Support\Facades\Cache::put($cacheKey, array_values(array_unique(array_map('strval', $readIds))), now()->addMonths(6));
     }
 
     private function getUserDismissedNotifications($user): array
