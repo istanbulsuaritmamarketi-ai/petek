@@ -171,11 +171,26 @@ class DiningController extends Controller
             })
             ->values();
 
-        $ratingCount = (int) $menu->rating_count;
-        $averageRating = $ratingCount > 0 ? (float) $menu->average_rating : 0.0;
-        if ($ratingCount === 0 && $ratingsList->count() > 0) {
-            $ratingCount = $ratingsList->count();
-            $averageRating = round((float) $ratingsList->avg('score'), 1);
+        $actualRatingCount = $menu->ratings()->count();
+        if ($actualRatingCount === 0) {
+            $ratingCount = 0;
+            $averageRating = 0.0;
+            if ($menu->rating_count != 0 || $menu->average_rating != 0) {
+                $menu->update([
+                    'rating_count' => 0,
+                    'average_rating' => 0.0,
+                    'rating_sum' => 0,
+                ]);
+            }
+        } else {
+            $ratingCount = $actualRatingCount;
+            $averageRating = round((float) $menu->ratings()->avg('score'), 1);
+            if ($menu->rating_count != $ratingCount || abs($menu->average_rating - $averageRating) > 0.05) {
+                $menu->update([
+                    'rating_count' => $ratingCount,
+                    'average_rating' => $averageRating,
+                ]);
+            }
         }
 
         return [
@@ -203,6 +218,17 @@ class DiningController extends Controller
     {
         $today = now()->toDateString();
         $userId = auth('sanctum')->id();
+
+        // Gerçekte öğrenci puanı/yorumu bulunmayan menülerin eski/sahte puanlarını sıfırla
+        DiningMenu::whereDoesntHave('ratings')
+            ->where(function ($q) {
+                $q->where('rating_count', '>', 0)->orWhere('average_rating', '>', 0);
+            })
+            ->update([
+                'rating_count' => 0,
+                'average_rating' => 0.0,
+                'rating_sum' => 0,
+            ]);
 
         $lunch = DiningMenu::whereDate('date', $today)->where('meal_type', 'lunch')->first();
         $dinner = DiningMenu::whereDate('date', $today)->where('meal_type', 'dinner')->first();
